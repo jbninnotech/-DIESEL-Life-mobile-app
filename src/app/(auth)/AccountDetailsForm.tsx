@@ -3,12 +3,12 @@ import React, { useState } from "react";
 import { StatusBar } from "expo-status-bar";
 
 import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 
 import CustomField from "@/components/Customfield";
@@ -16,6 +16,7 @@ import CustomHeader from "@/components/Customheader";
 import CustomSelect from "@/components/Customselect";
 import PrimaryButton from "@/components/PrimaryButton";
 import SectionHeader from "@/components/Sectionheader";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type RoleField = "designation" | "businessType";
@@ -79,8 +80,8 @@ export default function AccountDetailsForm({
   showCompanySection = true,
   onSubmit,
 }: AccountDetailsFormProps): React.JSX.Element {
-  const insets = useSafeAreaInsets();
 
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -95,7 +96,7 @@ export default function AccountDetailsForm({
   const [monthlyRequirement, setMonthlyRequirement] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [source, setSource] = useState<string | null>(null);
-
+const router = useRouter();
   const isGstValid = GST_REGEX.test(gstNumber);
 
   const isRoleValid =
@@ -138,7 +139,9 @@ export default function AccountDetailsForm({
   });
 
   const handleContinue = (): void => {
-    if (!isFormValid || source === null) return;
+    if (!isFormValid) return;
+      console.log("Navigating to Home");
+    router.replace("/(tabs)/(home)")
 
     Keyboard.dismiss();
 
@@ -322,39 +325,7 @@ export default function AccountDetailsForm({
             maxLength={6}
           />
 
-          <SectionHeader icon="gas-station-outline" title="Other Details" />
-
-          <CustomField
-            label="Monthly Diesel Requirement (Optional)"
-            placeholder="Enter litres per month"
-            hint="Eg 5000 litres"
-            icon="water-outline"
-            value={monthlyRequirement}
-            onChangeText={(value) =>
-              setMonthlyRequirement(value.replace(/\D/g, ""))
-            }
-            keyboardType="number-pad"
-            maxLength={7}
-          />
-
-          <CustomField
-            label="Referral Code (Optional)"
-            placeholder="Enter referral code"
-            hint="Eg ATD123456"
-            icon="ticket-percent-outline"
-            value={referralCode}
-            onChangeText={setReferralCode}
-            autoCapitalize="characters"
-          />
-
-          <CustomSelect
-            label="Where did you hear about Dieselify?"
-            required
-            icon="bullhorn-outline"
-            options={SOURCES}
-            value={source}
-            onSelect={setSource}
-          />
+       
         </ScrollView>
 
         <View

@@ -1,10 +1,9 @@
-import { View, Text } from 'react-native'
-import React from 'react'
+import { Text, View } from "react-native";
 
-export default function index() {
+export default function HomeScreen() {
   return (
-    <View>
-      <Text>index</Text>
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <Text>Welcome to Dieselify Home!</Text>
     </View>
-  )
+  );
 }
