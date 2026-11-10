@@ -84,7 +84,7 @@ export const MOCK_BANNERS: Banner[] = [
     subtitle: "Save flat ₹2.50 per liter on orders over 500L",
     tag: "MEGA OFFER",
     discount: "Flat ₹2.50/L Off",
-    gradientColors: ["#16A34A", "#0875D1"],
+  gradientColors: ["#1E3A8A", "#2563EB"],
     actionText: "Claim Fuel Pass",
   },
   {
@@ -93,7 +93,7 @@ export const MOCK_BANNERS: Banner[] = [
     subtitle: "Free scheduled on-site delivery for all commercial accounts",
     tag: "WEEKEND PASS",
     discount: "100% Free Delivery",
-    gradientColors: ["#0875D1", "#0284C7"],
+    gradientColors: ["#065F46", "#10B981"], // green
     actionText: "Book Now",
   },
   {
@@ -102,7 +102,7 @@ export const MOCK_BANNERS: Banner[] = [
     subtitle: "Earn ₹2,000 wallet credits for each active fleet referral",
     tag: "EARN REWARDS",
     discount: "Earn ₹2,000",
-    gradientColors: ["#D97706", "#B45309"],
+    gradientColors: ["#EA580C", "#F59E0B"], // orange
     actionText: "Invite Fleet",
   },
 ];

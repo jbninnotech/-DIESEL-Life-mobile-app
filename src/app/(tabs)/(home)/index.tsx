@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import { useVideoPlayer, VideoView } from "expo-video";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -27,6 +28,74 @@ import {
 import { Banner, FuelStation, ServiceItem } from "../../../types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const VIDEO_WIDTH = SCREEN_WIDTH - 32;
+
+const DELIVERY_VIDEOS = [
+  {
+    id: "1",
+    title: "Fast Fuel Delivery",
+    subtitle: "Diesel delivered directly to your location.",
+    video:
+      "https://res.cloudinary.com/yozeshlg/video/upload/v1793957318/WhatsApp_Video_2026-11-06_at_2.53.50_PM.mp4",
+  },
+  {
+    id: "2",
+    title: "Safe & Certified Bowsers",
+    subtitle: "Digitally metered, density verified fuel.",
+    video: "YOUR_CLOUDINARY_VIDEO_URL_2",
+  },
+  {
+    id: "3",
+    title: "Bulk Orders for Fleets",
+    subtitle: "Special deals for your business.",
+    video: "YOUR_CLOUDINARY_VIDEO_URL_3",
+  },
+];
+
+// Replace each image with your Cloudinary image link (png/jpg)
+const PRODUCT_CATEGORIES = [
+  {
+    id: "1",
+    title: "Emergency Diesel",
+    image:
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794294900/Fuel_Quality_and_Kenyan_Cars__Fuel_quality_varies__Some_engines_are_sensitive.__High-compression_engines_knock_easily._Older_engines_tolerate_poor_fuel_better.__That_s_why_simple_engines_last_longer_he.jpg",
+  },
+  {
+    id: "2",
+    title: "Diesel Delivery",
+    image:
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794296192/Deisel_Delivery.jpg",
+  },
+  {
+    id: "3",
+    title: "Doorstep Delivery",
+    image:
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794296197/Download_premium_png_of_PNG_Happy_delivery_person_riding_scooter_by_Pinn_about_delivery_man_png_delivery_png_delivery_boy_delivery_boy_png_and_delivery_man_motorcycle_15237807.jpg",
+  },
+  {
+    id: "4",
+    title: "Bulk Commercial",
+    image:
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794206243/WhatsApp_Image_2026-11-09_at_12.06.37_PM.jpg",
+  },
+];
+
+function DeliveryVideo({ videoUrl }: { videoUrl: string }) {
+  const player = useVideoPlayer(videoUrl, (player) => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
+
+  return (
+    <VideoView
+      player={player}
+      style={StyleSheet.absoluteFill}
+      contentFit="cover"
+      nativeControls={false}
+    />
+  );
+}
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -40,6 +109,25 @@ export default function HomeScreen() {
     null
   );
   const [stationModalVisible, setStationModalVisible] = useState(false);
+
+  // Delivery video carousel
+  const [activeVideo, setActiveVideo] = useState(0);
+  const activeVideoRef = useRef(0);
+  const videoScrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = (activeVideoRef.current + 1) % DELIVERY_VIDEOS.length;
+      activeVideoRef.current = next;
+      setActiveVideo(next);
+      videoScrollRef.current?.scrollTo({
+        x: next * VIDEO_WIDTH,
+        animated: true,
+      });
+    }, 8000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -101,10 +189,13 @@ export default function HomeScreen() {
           {/* Logo & Brand */}
           <View style={styles.brandRow}>
             <View style={styles.brandBadge}>
-              <MaterialCommunityIcons
-                name="gas-station"
-                size={22}
-                color="#FFFFFF"
+              <Image
+                source={{
+                  uri:
+                    "https://res.cloudinary.com/yozeshlg/image/upload/v1794304146/Gemini_Generated_Image_7bqx67bqx67bqx67.png",
+                }}
+                style={styles.brandLogo}
+                resizeMode="cover"
               />
             </View>
             <View>
@@ -145,7 +236,7 @@ export default function HomeScreen() {
         {/* Greeting */}
         <View style={styles.greetingWrap}>
           <Text style={styles.greetingText}>Good Day,</Text>
-          <Text style={styles.userName}>{MOCK_USER.name} 👋</Text>
+          <Text style={styles.userName}>{MOCK_USER.name} </Text>
         </View>
 
         {/* Search Bar */}
@@ -172,8 +263,49 @@ export default function HomeScreen() {
           />
         }
       >
+        {/* Delivery Videos (Auto-scroll) - above the wallet cards */}
+        <ScrollView
+          ref={videoScrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) => {
+            const index = Math.round(
+              e.nativeEvent.contentOffset.x / VIDEO_WIDTH
+            );
+            activeVideoRef.current = index;
+            setActiveVideo(index);
+          }}
+          style={styles.videoScroll}
+        >
+          {DELIVERY_VIDEOS.map((item) => (
+            <View key={item.id} style={styles.videoCard}>
+              <DeliveryVideo videoUrl={item.video} />
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.75)"]}
+                style={styles.videoOverlay}
+              >
+                <Text style={styles.videoTitle}>{item.title}</Text>
+                <Text style={styles.videoSubtitle}>{item.subtitle}</Text>
+              </LinearGradient>
+            </View>
+          ))}
+        </ScrollView>
+
+        <View style={styles.videoDots}>
+          {DELIVERY_VIDEOS.map((item, i) => (
+            <View
+              key={item.id}
+              style={[
+                styles.videoDot,
+                i === activeVideo && styles.videoDotActive,
+              ]}
+            />
+          ))}
+        </View>
+
         {/* Quick Summary Cards (Dashboard) */}
-        <View style={styles.statsGrid}>
+        {/* <View style={styles.statsGrid}>
           <TouchableOpacity
             style={styles.statCard}
             onPress={() => router.push("/(tabs)/(wallet)" as any)}
@@ -241,7 +373,39 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.statSub}>{MOCK_USER.memberTier}</Text>
           </View>
+        </View> */}
+        {/* Product Categories (Horizontal Scroll) */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Our Services</Text>
         </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScroll}
+        >
+          {PRODUCT_CATEGORIES.map((category) => (
+            <TouchableOpacity
+              key={category.id}
+              style={styles.categoryItem}
+              activeOpacity={0.8}
+              onPress={() =>
+                Alert.alert(category.title, "Category details coming soon.")
+              }
+            >
+              <View style={styles.categoryImageBox}>
+                <Image
+                  source={{ uri: category.image }}
+                  style={styles.categoryImage}
+                  resizeMode="cover"
+                />
+              </View>
+              <Text style={styles.categoryLabel} numberOfLines={3}>
+                {category.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
         {/* Promotional / Offer Banners (Horizontal Scroll) */}
         <View style={styles.sectionHeader}>
@@ -295,14 +459,14 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* Diesel Services Section */}
-        <View style={styles.sectionHeader}>
+        {/* <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Available Diesel Services</Text>
           <Text style={styles.sectionCount}>
             {filteredServices.length} Services
           </Text>
-        </View>
+        </View> */}
 
-        <View style={styles.servicesGrid}>
+        {/* <View style={styles.servicesGrid}>
           {filteredServices.map((service: ServiceItem) => (
             <TouchableOpacity
               key={service.id}
@@ -354,7 +518,7 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
           ))}
-        </View>
+        </View> */}
 
         {/* Nearby Fuel Stations Section */}
         <View style={styles.sectionHeader}>
@@ -624,14 +788,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  brandBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
+  brandLogo: {
+    width: "100%",
+    height: "100%",
   },
+  brandBadge: {
+  width: 44,
+  height: 44,
+  borderRadius: 12,
+  backgroundColor: "rgba(255, 255, 255, 0.2)",
+  alignItems: "center",
+  justifyContent: "center",
+  overflow: "hidden",
+},
   brandName: {
     fontSize: 16,
     fontWeight: "900",
@@ -706,6 +875,54 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 40,
   },
+
+  // Delivery video carousel
+  videoScroll: {
+    borderRadius: THEME.radius.lg,
+    marginBottom: 8,
+  },
+  videoCard: {
+    width: VIDEO_WIDTH,
+    height: 180,
+    borderRadius: THEME.radius.lg,
+    overflow: "hidden",
+    backgroundColor: "#0F172A",
+  },
+  videoOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 14,
+    paddingTop: 40,
+  },
+  videoTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  videoSubtitle: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.9)",
+    marginTop: 2,
+  },
+  videoDots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+    marginBottom: 16,
+  },
+  videoDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#CBD5E1",
+  },
+  videoDotActive: {
+    width: 18,
+    backgroundColor: THEME.colors.primary,
+  },
+
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -1114,5 +1331,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: THEME.colors.textPrimary,
+  },
+  // Product categories
+  categoryScroll: {
+    gap: 12,
+    paddingBottom: 8,
+    marginBottom: 16,
+  },
+  categoryItem: {
+    width: 84,
+    alignItems: "center",
+  },
+  categoryImageBox: {
+    width: 84,
+    height: 84,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  categoryImage: {
+    width: "100%",
+    height: "100%",
+  },
+  categoryLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: THEME.colors.textPrimary,
+    textAlign: "center",
+    lineHeight: 16,
   },
 });

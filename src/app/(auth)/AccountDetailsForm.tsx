@@ -1,14 +1,14 @@
+import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 
-import { StatusBar } from "expo-status-bar";
-
 import {
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    View,
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 
 import CustomField from "@/components/Customfield";
@@ -16,6 +16,7 @@ import CustomHeader from "@/components/Customheader";
 import CustomSelect from "@/components/Customselect";
 import PrimaryButton from "@/components/PrimaryButton";
 import SectionHeader from "@/components/Sectionheader";
+
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -45,10 +46,10 @@ interface AccountDetailsFormProps {
   roleField?: RoleField;
   gstRequired?: boolean;
   showCompanySection?: boolean;
-  onSubmit?: (values: AccountDetailsValues) => void;
+  onSubmit?: (values: AccountDetailsValues) => void | Promise<void>;
 }
 
-const SOURCES: string[] = [
+const SOURCES = [
   "Google Search",
   "Social Media",
   "Friend or Colleague",
@@ -56,7 +57,7 @@ const SOURCES: string[] = [
   "Other",
 ];
 
-const BUSINESS_TYPES: string[] = [
+const BUSINESS_TYPES = [
   "Transport & Logistics",
   "Construction",
   "Manufacturing",
@@ -71,6 +72,15 @@ const PHONE_REGEX = /^[6-9]\d{9}$/;
 const PINCODE_REGEX = /^\d{6}$/;
 const GST_REGEX = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
+// Alert.alert does not work on React Native Web, so fall back to window.alert
+const showAlert = (title: string, message: string): void => {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
+
 export default function AccountDetailsForm({
   pageName,
   showCompanyName = false,
@@ -80,8 +90,9 @@ export default function AccountDetailsForm({
   showCompanySection = true,
   onSubmit,
 }: AccountDetailsFormProps): React.JSX.Element {
-
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -89,63 +100,70 @@ export default function AccountDetailsForm({
   const [gstNumber, setGstNumber] = useState("");
   const [designation, setDesignation] = useState("");
   const [businessType, setBusinessType] = useState<string | null>(null);
+
   const [addressLine, setAddressLine] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [pincode, setPincode] = useState("");
-  const [monthlyRequirement, setMonthlyRequirement] = useState("");
-  const [referralCode, setReferralCode] = useState("");
+
+  const [monthlyRequirement] = useState("");
+  const [referralCode] = useState("");
+
   const [source, setSource] = useState<string | null>(null);
-const router = useRouter();
-  const isGstValid = GST_REGEX.test(gstNumber);
+  const [submitting, setSubmitting] = useState(false);
 
-  const isRoleValid =
-    roleField === "designation"
-      ? designation.trim().length > 0
-      : businessType !== null;
+  // Returns the list of fields that are currently invalid
+  const getInvalidFields = (): string[] => {
+    const invalid: string[] = [];
 
-  const isCompanyValid =
-    !showCompanySection ||
-    ((!showCompanyName || companyName.trim().length > 0) &&
-      (gstRequired ? isGstValid : gstNumber === "" || isGstValid) &&
-      isRoleValid);
+    if (name.trim().length === 0) invalid.push("Name");
+    if (!EMAIL_REGEX.test(email.trim())) invalid.push("Email");
+    if (!PHONE_REGEX.test(phone)) invalid.push("Phone Number (10 digits)");
 
-  const isFormValid =
-    name.trim().length > 0 &&
-    EMAIL_REGEX.test(email.trim()) &&
-    PHONE_REGEX.test(phone) &&
-    isCompanyValid &&
-    addressLine.trim().length > 0 &&
-    city.trim().length > 0 &&
-    state.trim().length > 0 &&
-    PINCODE_REGEX.test(pincode) &&
-    source !== null;
+    if (showCompanySection) {
+      if (showCompanyName && companyName.trim().length === 0) {
+        invalid.push(companyLabel);
+      }
 
-  console.log("FORM DATA:", {
-    name,
-    email,
-    phone,
-    companyName,
-    gstNumber,
-    designation,
-    businessType,
-    addressLine,
-    city,
-    state,
-    pincode,
-    monthlyRequirement,
-    referralCode,
-    source,
-  });
+      const gstOk = gstRequired
+        ? GST_REGEX.test(gstNumber)
+        : gstNumber === "" || GST_REGEX.test(gstNumber);
+      if (!gstOk) invalid.push("GST Number (15-character GSTIN)");
 
-  const handleContinue = (): void => {
-    if (!isFormValid) return;
-      console.log("Navigating to Home");
-    router.replace("/(tabs)/(home)")
+      if (roleField === "designation") {
+        if (designation.trim().length === 0) invalid.push("Designation");
+      } else if (businessType === null) {
+        invalid.push("Business Type");
+      }
+    }
 
+    if (addressLine.trim().length === 0) invalid.push("Address");
+    if (city.trim().length === 0) invalid.push("City");
+    if (state.trim().length === 0) invalid.push("State");
+    if (!PINCODE_REGEX.test(pincode)) invalid.push("Pincode (6 digits)");
+    if (source === null) invalid.push("How did you hear about us?");
+
+    return invalid;
+  };
+
+  const handleContinue = async (): Promise<void> => {
+    if (submitting) return;
+
+    console.log("[AccountDetailsForm] Continue pressed");
     Keyboard.dismiss();
 
-    onSubmit?.({
+    const invalidFields = getInvalidFields();
+
+    if (invalidFields.length > 0) {
+      console.log("[AccountDetailsForm] Invalid fields:", invalidFields);
+      showAlert(
+        "Incomplete Details",
+        `Please fix the following:\n\n• ${invalidFields.join("\n• ")}`
+      );
+      return;
+    }
+
+    const formData: AccountDetailsValues = {
       name: name.trim(),
       email: email.trim(),
       phone,
@@ -159,8 +177,26 @@ const router = useRouter();
       pincode,
       monthlyRequirement,
       referralCode: referralCode.trim(),
-      source,
-    });
+      source: source ?? "",
+    };
+
+    setSubmitting(true);
+
+    try {
+      // Wait for the parent's handler (e.g. an API call) before navigating
+      await onSubmit?.(formData);
+    } catch (error) {
+      console.log("[AccountDetailsForm] onSubmit failed:", error);
+      setSubmitting(false);
+      showAlert("Something went wrong", "Could not save your details. Please try again.");
+      return;
+    }
+
+    console.log("[AccountDetailsForm] Navigating to home");
+    setSubmitting(false);
+
+    // If this route doesn't work, try "/(tabs)" or "/" depending on your app/ folder
+    router.replace("/(tabs)/(home)");
   };
 
   return (
@@ -179,10 +215,9 @@ const router = useRouter();
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <SectionHeader
-            icon="account-circle-outline"
-            title="Personal Details"
-          />
+          {/* PERSONAL DETAILS */}
+
+          <SectionHeader icon="account-circle-outline" title="Personal Details" />
 
           <CustomField
             label="Name"
@@ -220,11 +255,13 @@ const router = useRouter();
             maxLength={10}
           />
 
-          {showCompanySection ? (
+          {/* COMPANY DETAILS */}
+
+          {showCompanySection && (
             <>
               <SectionHeader icon="domain" title="Company Details" />
 
-              {showCompanyName ? (
+              {showCompanyName && (
                 <CustomField
                   label={companyLabel}
                   required
@@ -235,7 +272,7 @@ const router = useRouter();
                   onChangeText={setCompanyName}
                   autoCapitalize="words"
                 />
-              ) : null}
+              )}
 
               <CustomField
                 label={gstRequired ? "GST Number" : "GST Number (Optional)"}
@@ -273,7 +310,9 @@ const router = useRouter();
                 />
               )}
             </>
-          ) : null}
+          )}
+
+          {/* DELIVERY ADDRESS */}
 
           <SectionHeader icon="map-marker-outline" title="Delivery Address" />
 
@@ -325,8 +364,10 @@ const router = useRouter();
             maxLength={6}
           />
 
-       
+  
         </ScrollView>
+
+        {/* BOTTOM BUTTON */}
 
         <View
           style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}
@@ -334,14 +375,15 @@ const router = useRouter();
           <PrimaryButton
             title="Continue"
             onPress={handleContinue}
-            // disabled={!isFormValid}
-            loading={false}
+            loading={submitting}
           />
         </View>
       </KeyboardAvoidingView>
     </View>
   );
 }
+
+// STYLES
 
 const styles = StyleSheet.create({
   root: {
