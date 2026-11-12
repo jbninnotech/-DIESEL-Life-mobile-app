@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 import {
   Alert,
@@ -8,14 +8,24 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Text,
+  TextInput,
   View,
 } from "react-native";
+
+import CountryPicker, {
+  Country,
+  CountryCode,
+} from "react-native-country-picker-modal";
 
 import CustomField from "@/components/Customfield";
 import CustomHeader from "@/components/Customheader";
 import CustomSelect from "@/components/Customselect";
 import PrimaryButton from "@/components/PrimaryButton";
+import SearchDropdown, { DropdownOption } from "@/components/SearchDropdown";
 import SectionHeader from "@/components/Sectionheader";
+
+import indiaData from "@/assets/indiaData.json";
 
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,6 +43,7 @@ export interface AccountDetailsValues {
   addressLine: string;
   city: string;
   state: string;
+  district: string;
   pincode: string;
   monthlyRequirement: string;
   referralCode: string;
@@ -49,13 +60,14 @@ interface AccountDetailsFormProps {
   onSubmit?: (values: AccountDetailsValues) => void | Promise<void>;
 }
 
-const SOURCES = [
-  "Google Search",
-  "Social Media",
-  "Friend or Colleague",
-  "Advertisement",
-  "Other",
-];
+// state -> district -> list of cities (with pincode). Cities may be empty.
+type CityRow = { city: string; pincode: string };
+const DATA = indiaData as Record<string, Record<string, CityRow[]>>;
+
+const STATE_OPTIONS: DropdownOption[] = Object.keys(DATA).map((s) => ({
+  label: s,
+  value: s,
+}));
 
 const BUSINESS_TYPES = [
   "Transport & Logistics",
@@ -68,11 +80,10 @@ const BUSINESS_TYPES = [
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^[6-9]\d{9}$/;
+const PHONE_REGEX = /^\d{7,15}$/;
 const PINCODE_REGEX = /^\d{6}$/;
 const GST_REGEX = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
-// Alert.alert does not work on React Native Web, so fall back to window.alert
 const showAlert = (title: string, message: string): void => {
   if (Platform.OS === "web") {
     window.alert(`${title}\n\n${message}`);
@@ -93,69 +104,150 @@ export default function AccountDetailsForm({
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  // Personal details
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+
+  // Country picker
+  const [countryCode, setCountryCode] = useState<CountryCode>("IN");
+  const [callingCode, setCallingCode] = useState("91");
+
+  const fullPhoneNumber = `+${callingCode}${phone}`;
+
+  // Company details
   const [companyName, setCompanyName] = useState("");
   const [gstNumber, setGstNumber] = useState("");
   const [designation, setDesignation] = useState("");
   const [businessType, setBusinessType] = useState<string | null>(null);
 
+  // Address details
   const [addressLine, setAddressLine] = useState("");
-  const [city, setCity] = useState("");
   const [state, setState] = useState("");
+  const [district, setDistrict] = useState("");
+  const [city, setCity] = useState("");
   const [pincode, setPincode] = useState("");
 
   const [monthlyRequirement] = useState("");
   const [referralCode] = useState("");
+  const [source] = useState<string | null>(null);
 
-  const [source, setSource] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Returns the list of fields that are currently invalid
+  // Options are calculated straight from the JSON data
+  const districtOptions: DropdownOption[] = useMemo(
+    () =>
+      state
+        ? Object.keys(DATA[state] ?? {}).map((d) => ({ label: d, value: d }))
+        : [],
+    [state]
+  );
+
+  const cityOptions: DropdownOption[] = useMemo(
+    () =>
+      state && district
+        ? (DATA[state]?.[district] ?? []).map((c) => ({
+            label: c.city,
+            value: c.city,
+            subtitle: c.pincode,
+          }))
+        : [],
+    [state, district]
+  );
+
+  // If a district has no cities in the data, the user types city manually
+  const cityIsManual = !!district && cityOptions.length === 0;
+
+  // Country selection
+  const handleCountrySelect = (country: Country) => {
+    setCountryCode(country.cca2);
+    setCallingCode(country.callingCode[0] || "91");
+    setPhone("");
+  };
+
+  // Phone validation
+  const validatePhone = (): boolean => {
+    if (!PHONE_REGEX.test(phone)) {
+      return false;
+    }
+
+    if (countryCode === "IN") {
+      return /^[6-9]\d{9}$/.test(phone);
+    }
+
+    return true;
+  };
+
+  // Form validation
   const getInvalidFields = (): string[] => {
     const invalid: string[] = [];
 
-    if (name.trim().length === 0) invalid.push("Name");
-    if (!EMAIL_REGEX.test(email.trim())) invalid.push("Email");
-    if (!PHONE_REGEX.test(phone)) invalid.push("Phone Number (10 digits)");
+    if (!name.trim()) {
+      invalid.push("Name");
+    }
+
+    if (!EMAIL_REGEX.test(email.trim())) {
+      invalid.push("Email");
+    }
+
+    if (!validatePhone()) {
+      invalid.push("Valid Phone Number");
+    }
 
     if (showCompanySection) {
-      if (showCompanyName && companyName.trim().length === 0) {
+      if (showCompanyName && !companyName.trim()) {
         invalid.push(companyLabel);
       }
 
       const gstOk = gstRequired
         ? GST_REGEX.test(gstNumber)
         : gstNumber === "" || GST_REGEX.test(gstNumber);
-      if (!gstOk) invalid.push("GST Number (15-character GSTIN)");
+
+      if (!gstOk) {
+        invalid.push("GST Number (15-character GSTIN)");
+      }
 
       if (roleField === "designation") {
-        if (designation.trim().length === 0) invalid.push("Designation");
+        if (!designation.trim()) {
+          invalid.push("Designation");
+        }
       } else if (businessType === null) {
         invalid.push("Business Type");
       }
     }
 
-    if (addressLine.trim().length === 0) invalid.push("Address");
-    if (city.trim().length === 0) invalid.push("City");
-    if (state.trim().length === 0) invalid.push("State");
-    if (!PINCODE_REGEX.test(pincode)) invalid.push("Pincode (6 digits)");
-    if (source === null) invalid.push("How did you hear about us?");
+    if (!addressLine.trim()) {
+      invalid.push("Address");
+    }
+
+    if (!state.trim()) {
+      invalid.push("State");
+    }
+
+    if (!district.trim()) {
+      invalid.push("District");
+    }
+
+    if (!city.trim()) {
+      invalid.push("City");
+    }
+
+    if (!PINCODE_REGEX.test(pincode)) {
+      invalid.push("Pincode (6 digits)");
+    }
 
     return invalid;
   };
 
+  // Continue
   const handleContinue = async (): Promise<void> => {
     if (submitting) return;
 
-    console.log("[AccountDetailsForm] Continue pressed");
     Keyboard.dismiss();
 
     const invalidFields = getInvalidFields();
 
     if (invalidFields.length > 0) {
-      console.log("[AccountDetailsForm] Invalid fields:", invalidFields);
       showAlert(
         "Incomplete Details",
         `Please fix the following:\n\n• ${invalidFields.join("\n• ")}`
@@ -166,15 +258,21 @@ export default function AccountDetailsForm({
     const formData: AccountDetailsValues = {
       name: name.trim(),
       email: email.trim(),
-      phone,
+
+      // International phone number
+      phone: fullPhoneNumber,
+
       companyName: companyName.trim(),
       gstNumber,
       designation: designation.trim(),
       businessType: businessType ?? "",
+
       addressLine: addressLine.trim(),
       city: city.trim(),
       state: state.trim(),
+      district: district.trim(),
       pincode,
+
       monthlyRequirement,
       referralCode: referralCode.trim(),
       source: source ?? "",
@@ -183,20 +281,21 @@ export default function AccountDetailsForm({
     setSubmitting(true);
 
     try {
-      // Wait for the parent's handler (e.g. an API call) before navigating
+      console.log("[AccountDetailsForm] Submitting:", formData);
+
       await onSubmit?.(formData);
+
+      router.replace("/(tabs)/(home)");
     } catch (error) {
-      console.log("[AccountDetailsForm] onSubmit failed:", error);
+      console.log("[AccountDetailsForm] Submit error:", error);
+
+      showAlert(
+        "Something went wrong",
+        "Could not save your details. Please try again."
+      );
+    } finally {
       setSubmitting(false);
-      showAlert("Something went wrong", "Could not save your details. Please try again.");
-      return;
     }
-
-    console.log("[AccountDetailsForm] Navigating to home");
-    setSubmitting(false);
-
-    // If this route doesn't work, try "/(tabs)" or "/" depending on your app/ folder
-    router.replace("/(tabs)/(home)");
   };
 
   return (
@@ -217,7 +316,10 @@ export default function AccountDetailsForm({
         >
           {/* PERSONAL DETAILS */}
 
-          <SectionHeader icon="account-circle-outline" title="Personal Details" />
+          <SectionHeader
+            icon="account-circle-outline"
+            title="Personal Details"
+          />
 
           <CustomField
             label="Name"
@@ -242,18 +344,42 @@ export default function AccountDetailsForm({
             autoCapitalize="none"
           />
 
-          <CustomField
-            label="Phone Number"
-            required
-            placeholder="Enter 10-digit number"
-            hint="Eg 9876543210"
-            icon="phone-outline"
-            prefix="+91"
-            value={phone}
-            onChangeText={(value) => setPhone(value.replace(/\D/g, ""))}
-            keyboardType="phone-pad"
-            maxLength={10}
-          />
+          {/* PHONE NUMBER */}
+
+          <View style={styles.phoneContainer}>
+            <Text style={styles.phoneLabel}>Phone Number *</Text>
+
+            <View style={styles.phoneInput}>
+              <CountryPicker
+                countryCode={countryCode}
+                withFilter
+                withFlag
+                withCallingCode
+                withCallingCodeButton
+                onSelect={handleCountrySelect}
+              />
+
+              <View style={styles.phoneDivider} />
+
+              <TextInput
+                style={styles.phoneTextInput}
+                placeholder="Enter phone number"
+                placeholderTextColor="#94A3B8"
+                value={phone}
+                onChangeText={(value) => {
+                  setPhone(value.replace(/\D/g, "").slice(0, 15));
+                }}
+                keyboardType="phone-pad"
+                maxLength={15}
+              />
+            </View>
+
+            <Text style={styles.phoneHint}>
+              {phone
+                ? `Selected number: ${fullPhoneNumber}`
+                : `Country code: +${callingCode}`}
+            </Text>
+          </View>
 
           {/* COMPANY DETAILS */}
 
@@ -326,31 +452,62 @@ export default function AccountDetailsForm({
             onChangeText={setAddressLine}
           />
 
-          <View style={styles.row}>
+          <SearchDropdown
+            label="State"
+            placeholder="Select State"
+            value={state}
+            options={STATE_OPTIONS}
+            onSelect={(o) => {
+              setState(o.value);
+              setDistrict("");
+              setCity("");
+              setPincode("");
+            }}
+          />
+
+          <SearchDropdown
+            label="District"
+            placeholder={!state ? "Select State First" : "Select District"}
+            value={district}
+            options={districtOptions}
+            disabled={!state}
+            onSelect={(o) => {
+              setDistrict(o.value);
+              setCity("");
+              setPincode("");
+            }}
+          />
+
+          {/* CITY: searchable list when data exists, manual entry otherwise */}
+
+          {cityIsManual ? (
             <CustomField
-              label="City"
+              label="City / Area"
               required
-              placeholder="City"
+              placeholder="Enter city or area"
               hint="Eg Hyderabad"
               icon="city-variant-outline"
               value={city}
               onChangeText={setCity}
               autoCapitalize="words"
-              containerStyle={styles.half}
             />
+          ) : (
+            <SearchDropdown
+              label="City / Area"
+              placeholder={
+                !district ? "Select District First" : "Select City / Area"
+              }
+              value={city}
+              options={cityOptions}
+              disabled={!district}
+              onSelect={(o) => {
+                setCity(o.value);
+                setPincode(o.subtitle ?? ""); // autofill pincode
+              }}
+            />
+          )}
 
-            <CustomField
-              label="State"
-              required
-              placeholder="State"
-              hint="Eg Telangana"
-              icon="map-outline"
-              value={state}
-              onChangeText={setState}
-              autoCapitalize="words"
-              containerStyle={styles.half}
-            />
-          </View>
+          {/* PINCODE */}
 
           <CustomField
             label="Pincode"
@@ -359,12 +516,12 @@ export default function AccountDetailsForm({
             hint="Eg 500081"
             icon="map-marker-radius-outline"
             value={pincode}
-            onChangeText={(value) => setPincode(value.replace(/\D/g, ""))}
+            onChangeText={(value) =>
+              setPincode(value.replace(/\D/g, "").slice(0, 6))
+            }
             keyboardType="number-pad"
             maxLength={6}
           />
-
-  
         </ScrollView>
 
         {/* BOTTOM BUTTON */}
@@ -396,23 +553,58 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 25,
   },
 
-  row: {
+  phoneContainer: {
+    marginBottom: 18,
+  },
+
+  phoneLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#334155",
+    marginBottom: 8,
+  },
+
+  phoneInput: {
+    height: 55,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
     flexDirection: "row",
-    gap: 12,
+    alignItems: "center",
+    paddingHorizontal: 12,
+    backgroundColor: "#FFFFFF",
   },
 
-  half: {
+  phoneDivider: {
+    height: 25,
+    width: 1,
+    backgroundColor: "#CBD5E1",
+    marginHorizontal: 12,
+  },
+
+  phoneTextInput: {
     flex: 1,
+    height: "100%",
+    fontSize: 14,
+    color: "#0F172A",
+  },
+
+  phoneHint: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 6,
   },
 
   bottomSection: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 12,
     backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
 });

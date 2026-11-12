@@ -1,55 +1,65 @@
-import React, { useEffect, useRef, useState } from "react";
-
-import CustomHeader from "@/components/Customheader";
-import PrimaryButton from "@/components/PrimaryButton";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Image,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-interface OtpScreenState {
-  digits: string[];
-  focusedIndex: number;
-  seconds: number;
-}
+const COLORS = {
+  navy: "#0A2A6C",
+  blue: "#0B63D1",
+  blueLight: "#EAF2FD",
+  green: "#4CC74A",
+  border: "#CBD5E1",
+  muted: "#64748B",
+  white: "#FFFFFF",
+};
 
-const OTP_LENGTH = 4;
-const RESEND_SECONDS = 59;
+const OTP_LENGTH = 6;
+const RESEND_SECONDS = 45;
 
 type TextInputRef = React.ElementRef<typeof TextInput>;
 
+const capCircle = (width: number, capHeight: number) => {
+  const radius = (width * width) / 4 + capHeight * capHeight;
+  const r = radius / (2 * capHeight);
+  return { r, size: r * 2 };
+};
+
 export default function OtpVerified(): React.JSX.Element {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
 
   const { phone } = useLocalSearchParams<{ phone: string }>();
-
   const phoneNumber = Array.isArray(phone) ? phone[0] : phone ?? "";
 
-  const [digits, setDigits] = useState<OtpScreenState["digits"]>(
-    Array(OTP_LENGTH).fill("")
-  );
-
-  const [focusedIndex, setFocusedIndex] =
-    useState<OtpScreenState["focusedIndex"]>(0);
-
-  const [seconds, setSeconds] =
-    useState<OtpScreenState["seconds"]>(RESEND_SECONDS);
+  const [digits, setDigits] = useState<string[]>(Array(OTP_LENGTH).fill(""));
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const [seconds, setSeconds] = useState(RESEND_SECONDS);
 
   const inputs = useRef<Array<TextInputRef | null>>([]);
 
   const isOtpValid = digits.every((digit) => digit !== "");
 
+  const heroHeight = Math.min(height * 0.43, 400);
+  const heroCap = capCircle(width, 44);
+  const bottomGreen = capCircle(width, 70);
+  const bottomBlue = capCircle(width, 44);
+const HERO_IMAGE = {
+  uri: "https://res.cloudinary.com/yozeshlg/image/upload/v1794483211/Diesel_Life_Fuel_Truck_on_Highway.png",
+};
   useEffect(() => {
     if (seconds <= 0) return;
 
@@ -132,226 +142,346 @@ export default function OtpVerified(): React.JSX.Element {
     focusBox(0);
   };
 
+  const handleChangeNumber = (): void => {
+    if (router.canGoBack()) {
+      router.back();
+    }
+  };
+
   return (
-    <View style={styles.root}>
-      <StatusBar style="light" />
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <StatusBar style="dark" />
 
-      <CustomHeader title="" pageName="Verify OTP" />
+      <View
+        pointerEvents="none"
+        style={[styles.bottomWave, { width }]}
+      >
+        <View
+          style={{
+            position: "absolute",
+            width: bottomGreen.size,
+            height: bottomGreen.size,
+            borderRadius: bottomGreen.r,
+            backgroundColor: COLORS.green,
+            left: width / 2 - bottomGreen.r - 50,
+            top: 0,
+          }}
+        />
+        <View
+          style={{
+            position: "absolute",
+            width: bottomBlue.size,
+            height: bottomBlue.size,
+            borderRadius: bottomBlue.r,
+            backgroundColor: COLORS.blue,
+            left: width / 2 - bottomBlue.r + 40,
+            top: 30,
+          }}
+        />
+      </View>
 
-      <View style={styles.content}>
-        <Text style={styles.title}>Verify Your Number</Text>
+      <ScrollView
+        bounces={false}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scroll}
+      >
+        <View style={[styles.hero, { height: heroHeight }]}>
+          <Image
+            source={HERO_IMAGE}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
 
-        <Text style={styles.subtitle}>
-          We've sent a 4-digit verification code to
-          {phoneNumber ? ` +91 ${phoneNumber}` : " your mobile number"}. Please
-          enter it below to continue.
-        </Text>
-
-        <Text style={styles.label}>Enter Verification Code</Text>
-
-        <View style={styles.boxes}>
-          {digits.map((digit, index) => (
-            <TextInput
-              key={index}
-              ref={(ref) => {
-                inputs.current[index] = ref;
-              }}
-              style={[
-                styles.otpBox,
-                focusedIndex === index && styles.otpBoxFocused,
-                digit !== "" && styles.otpBoxFilled,
-              ]}
-              value={digit}
-              onChangeText={(value) => handleOtpChange(value, index)}
-              onKeyPress={({ nativeEvent }) =>
-                handleKeyPress(nativeEvent.key, index)
-              }
-              onFocus={() => setFocusedIndex(index)}
-              keyboardType="number-pad"
-              maxLength={OTP_LENGTH}
-              textAlign="center"
-              selectTextOnFocus
-            />
-          ))}
+          <View
+            style={{
+              position: "absolute",
+              width: heroCap.size,
+              height: heroCap.size,
+              borderRadius: heroCap.r,
+              backgroundColor: COLORS.green,
+              left: width / 2 - heroCap.r + 60,
+              top: heroHeight - 44 - 12,
+            }}
+          />
+          <View
+            style={{
+              position: "absolute",
+              width: heroCap.size,
+              height: heroCap.size,
+              borderRadius: heroCap.r,
+              backgroundColor: COLORS.blue,
+              left: width / 2 - heroCap.r + 25,
+              top: heroHeight - 44 - 7,
+            }}
+          />
+          <View
+            style={{
+              position: "absolute",
+              width: heroCap.size,
+              height: heroCap.size,
+              borderRadius: heroCap.r,
+              backgroundColor: COLORS.white,
+              left: width / 2 - heroCap.r,
+              top: heroHeight - 44,
+            }}
+          />
         </View>
 
-        <View style={styles.resendContainer}>
-          {seconds > 0 ? (
-            <View style={styles.timerPill}>
-              <MaterialCommunityIcons
-                name="timer-sand"
-                size={16}
-                color="#0875D1"
+        <View style={styles.content}>
+          <Text style={styles.title}>OTP Verification</Text>
+
+          <Text style={styles.subtitle}>
+            Enter the {OTP_LENGTH} digit OTP sent to
+          </Text>
+
+          <Pressable
+            style={styles.phoneRow}
+            onPress={handleChangeNumber}
+            hitSlop={8}
+          >
+            <Text style={styles.phone}>
+              {phoneNumber ? `+91 ${phoneNumber}` : "your mobile number"}
+            </Text>
+            <MaterialCommunityIcons
+              name="pencil-outline"
+              size={20}
+              color={COLORS.blue}
+            />
+          </Pressable>
+
+          <View style={styles.boxes}>
+            {digits.map((digit, index) => (
+              <TextInput
+                key={index}
+                ref={(ref) => {
+                  inputs.current[index] = ref;
+                }}
+                style={[
+                  styles.otpBox,
+                  digit !== "" && styles.otpBoxFilled,
+                  focusedIndex === index && styles.otpBoxFocused,
+                ]}
+                value={digit}
+                onChangeText={(value) => handleOtpChange(value, index)}
+                onKeyPress={({ nativeEvent }) =>
+                  handleKeyPress(nativeEvent.key, index)
+                }
+                onFocus={() => setFocusedIndex(index)}
+                keyboardType="number-pad"
+                maxLength={OTP_LENGTH}
+                textAlign="center"
+                selectTextOnFocus
               />
+            ))}
+          </View>
+
+          <View style={styles.resendContainer}>
+            {seconds > 0 ? (
               <Text style={styles.resendText}>
-                Resend code in{" "}
+                Resend OTP in{" "}
                 <Text style={styles.timer}>
                   00:{seconds.toString().padStart(2, "0")}
                 </Text>
               </Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={handleResend}
-              activeOpacity={0.7}
-              style={styles.resendButton}
-            >
-              <MaterialCommunityIcons
-                name="refresh"
-                size={18}
-                color="#16A34A"
-              />
-              <Text style={styles.resendActive}>Resend OTP</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+            ) : (
+              <Pressable onPress={handleResend} hitSlop={8}>
+                <Text style={styles.resendActive}>Resend OTP</Text>
+              </Pressable>
+            )}
+          </View>
 
-      <View
-        style={[styles.bottomSection, { paddingBottom: insets.bottom + 16 }]}
-      >
-        <PrimaryButton
-          title="Verify & Continue"
-          onPress={handleVerify}
-          disabled={!isOtpValid}
-          loading={false}
-        />
+          <Pressable
+            style={[styles.verifyBtn, !isOtpValid && styles.verifyBtnOff]}
+            onPress={handleVerify}
+            disabled={!isOtpValid}
+          >
+            <Text style={styles.verifyText}>Verify</Text>
+            <MaterialCommunityIcons
+              name="arrow-right"
+              size={24}
+              color={COLORS.white}
+            />
+          </Pressable>
 
-        <View style={styles.footerRow}>
-          <MaterialCommunityIcons
-            name="lock-outline"
-            size={14}
-            color="#94A3B8"
-          />
-          <Text style={styles.footerText}>
-            Your mobile number is securely verified with Dieselify.
-          </Text>
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>OR</Text>
+            <View style={styles.orLine} />
+          </View>
+
+          <Pressable onPress={handleChangeNumber} hitSlop={8}>
+            <Text style={styles.changeText}>Change Mobile Number</Text>
+          </Pressable>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: COLORS.white,
+  },
+
+  scroll: {
+    flexGrow: 1,
+    paddingBottom: 130,
+  },
+
+  hero: {
+    width: "100%",
+    overflow: "hidden",
+    backgroundColor: "#BFE3FA",
   },
 
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingHorizontal: 22,
+    alignItems: "center",
   },
 
   title: {
-    fontSize: 27,
+    fontSize: 28,
     fontWeight: "800",
-    color: "#0875D1",
+    color: COLORS.navy,
     letterSpacing: -0.5,
-    marginBottom: 10,
+    marginTop: 4,
   },
 
   subtitle: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: "#64748B",
-    marginBottom: 28,
+    fontSize: 16,
+    color: COLORS.navy,
+    marginTop: 8,
   },
 
-  label: {
-    fontSize: 14,
+  phoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 2,
+    marginBottom: 22,
+  },
+
+  phone: {
+    fontSize: 19,
     fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 14,
+    color: COLORS.navy,
   },
 
   boxes: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 14,
+    alignSelf: "stretch",
+    gap: 10,
   },
 
   otpBox: {
     flex: 1,
-    height: 66,
+    height: 60,
     borderWidth: 1.5,
-    borderColor: "#CBD5E1",
+    borderColor: COLORS.border,
     borderRadius: 14,
-    fontSize: 25,
-    fontWeight: "700",
-    color: "#0F172A",
-    backgroundColor: "#FFFFFF",
-  },
-
-  otpBoxFocused: {
-    borderColor: "#0875D1",
-    borderWidth: 2,
-    backgroundColor: "#F8FBFF",
+    fontSize: 24,
+    fontWeight: "600",
+    color: COLORS.navy,
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 0,
   },
 
   otpBoxFilled: {
-    borderColor: "#16A34A",
+    borderColor: "#93B8EC",
     backgroundColor: "#F8FBFF",
   },
 
-  resendContainer: {
-    marginTop: 26,
-    alignItems: "center",
+  otpBoxFocused: {
+    borderColor: COLORS.blue,
+    borderWidth: 2,
   },
 
-  timerPill: {
-    flexDirection: "row",
+  resendContainer: {
+    marginTop: 18,
+    marginBottom: 18,
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "#E8F3FC",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
   },
 
   resendText: {
-    fontSize: 13,
-    color: "#64748B",
+    fontSize: 15,
+    color: COLORS.navy,
   },
 
   timer: {
-    color: "#0875D1",
+    color: COLORS.blue,
     fontWeight: "700",
-  },
-
-  resendButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
-    backgroundColor: "#F1F5F9",
   },
 
   resendActive: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
-    color: "#16A34A",
+    color: COLORS.blue,
   },
 
-  bottomSection: {
-    marginTop: "auto",
-    paddingHorizontal: 24,
-    paddingTop: 20,
-  },
-
-  footerRow: {
+  verifyBtn: {
+    alignSelf: "stretch",
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: COLORS.blue,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    marginTop: 16,
+    gap: 10,
+    elevation: 4,
+    shadowColor: COLORS.blue,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
 
-  footerText: {
-    fontSize: 12,
-    color: "#94A3B8",
-    textAlign: "center",
+  verifyBtnOff: {
+    opacity: 0.5,
+  },
+
+  verifyText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: COLORS.white,
+  },
+
+  orRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "stretch",
+    gap: 14,
+    marginTop: 22,
+    marginBottom: 18,
+  },
+
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+
+  orText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.navy,
+  },
+
+  changeText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: COLORS.blue,
+  },
+
+  bottomWave: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    height: 90,
+    overflow: "hidden",
   },
 });

@@ -22,31 +22,30 @@ import {
   MOCK_BANNERS,
   MOCK_ORDERS,
   MOCK_SERVICES,
-  MOCK_STATIONS,
-  MOCK_USER,
+  MOCK_USER
 } from "../../../data/mockData";
 import { Banner, FuelStation, ServiceItem } from "../../../types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BANNER_WIDTH = SCREEN_WIDTH - 32;
 const BANNER_HEIGHT = 180;
-const BANNER_INTERVAL_MS = 5000;
+const BANNER_INTERVAL_MS = 2000;
 
 const HOME_BANNERS = [
   {
     id: "1",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794294900/Fuel_Quality_and_Kenyan_Cars__Fuel_quality_varies__Some_engines_are_sensitive.__High-compression_engines_knock_easily._Older_engines_tolerate_poor_fuel_better.__That_s_why_simple_engines_last_longer_he.jpg",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794474225/Dieselify_On-Site_Delivery_Banner.png",
   },
   {
     id: "2",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794296192/Deisel_Delivery.jpg",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794294900/Fuel_Quality_and_Kenyan_Cars__Fuel_quality_varies__Some_engines_are_sensitive.__High-compression_engines_knock_easily._Older_engines_tolerate_poor_fuel_better.__That_s_why_simple_engines_last_longer_he.jpg",
   },
   {
     id: "3",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794206243/WhatsApp_Image_2026-11-09_at_12.06.37_PM.jpg",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794477176/Doorstep_Diesel_Delivery_Showcase.png",
   },
 ];
 
@@ -56,25 +55,25 @@ const PRODUCT_CATEGORIES = [
     id: "1",
     title: "Emergency Diesel",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794294900/Fuel_Quality_and_Kenyan_Cars__Fuel_quality_varies__Some_engines_are_sensitive.__High-compression_engines_knock_easily._Older_engines_tolerate_poor_fuel_better.__That_s_why_simple_engines_last_longer_he.jpg",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794476293/660340364150684314.jpg",
   },
   {
     id: "2",
     title: "Diesel Delivery",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794296192/Deisel_Delivery.jpg",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794480312/ai_gerado_motor_%C3%B3leo_respingo_din%C3%A2mico_isolado_conceito.jpg",
   },
   {
     id: "3",
     title: "Doorstep Delivery",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794296197/Download_premium_png_of_PNG_Happy_delivery_person_riding_scooter_by_Pinn_about_delivery_man_png_delivery_png_delivery_boy_delivery_boy_png_and_delivery_man_motorcycle_15237807.jpg",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794480638/Dieselify_Delivery_Worker_and_Truck.png",
   },
   {
     id: "4",
     title: "Bulk Commercial",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794206243/WhatsApp_Image_2026-11-09_at_12.06.37_PM.jpg",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794480741/801077852498385626.jpg",
   },
 ];
 
@@ -500,7 +499,7 @@ export default function HomeScreen() {
         </View> */}
 
         {/* Nearby Fuel Stations Section */}
-        <View style={styles.sectionHeader}>
+        {/* <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Nearby Fuel Terminals</Text>
           <TouchableOpacity
             onPress={() =>
@@ -512,9 +511,9 @@ export default function HomeScreen() {
           >
             <Text style={styles.seeAllText}>View Map</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
-        <View style={styles.stationsList}>
+        {/* <View style={styles.stationsList}>
           {MOCK_STATIONS.map((station: FuelStation) => (
             <TouchableOpacity
               key={station.id}
@@ -577,7 +576,7 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
           ))}
-        </View>
+        </View> */}
 
         {/* Recent Activities Section */}
         <View style={styles.sectionHeader}>
