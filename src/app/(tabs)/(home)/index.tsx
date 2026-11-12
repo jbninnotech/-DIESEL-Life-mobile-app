@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useVideoPlayer, VideoView } from "expo-video";
+
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -28,27 +28,25 @@ import {
 import { Banner, FuelStation, ServiceItem } from "../../../types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const VIDEO_WIDTH = SCREEN_WIDTH - 32;
+const BANNER_WIDTH = SCREEN_WIDTH - 32;
+const BANNER_HEIGHT = 180;
+const BANNER_INTERVAL_MS = 5000;
 
-const DELIVERY_VIDEOS = [
+const HOME_BANNERS = [
   {
     id: "1",
-    title: "Fast Fuel Delivery",
-    subtitle: "Diesel delivered directly to your location.",
-    video:
-      "https://res.cloudinary.com/yozeshlg/video/upload/v1793957318/WhatsApp_Video_2026-11-06_at_2.53.50_PM.mp4",
+    image:
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794294900/Fuel_Quality_and_Kenyan_Cars__Fuel_quality_varies__Some_engines_are_sensitive.__High-compression_engines_knock_easily._Older_engines_tolerate_poor_fuel_better.__That_s_why_simple_engines_last_longer_he.jpg",
   },
   {
     id: "2",
-    title: "Safe & Certified Bowsers",
-    subtitle: "Digitally metered, density verified fuel.",
-    video: "YOUR_CLOUDINARY_VIDEO_URL_2",
+    image:
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794296192/Deisel_Delivery.jpg",
   },
   {
     id: "3",
-    title: "Bulk Orders for Fleets",
-    subtitle: "Special deals for your business.",
-    video: "YOUR_CLOUDINARY_VIDEO_URL_3",
+    image:
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794206243/WhatsApp_Image_2026-11-09_at_12.06.37_PM.jpg",
   },
 ];
 
@@ -80,22 +78,12 @@ const PRODUCT_CATEGORIES = [
   },
 ];
 
-function DeliveryVideo({ videoUrl }: { videoUrl: string }) {
-  const player = useVideoPlayer(videoUrl, (player) => {
-    player.loop = true;
-    player.muted = true;
-    player.play();
-  });
-
-  return (
-    <VideoView
-      player={player}
-      style={StyleSheet.absoluteFill}
-      contentFit="cover"
-      nativeControls={false}
-    />
-  );
-}
+const CATEGORY_ROUTES: Record<string, string> = {
+  "1": "/(tabs)/(book)",
+  "2": "/(tabs)/(book)",
+  "3": "/(tabs)/(book)",
+  "4": "/(tabs)/(book)",
+};
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -109,25 +97,21 @@ export default function HomeScreen() {
     null
   );
   const [stationModalVisible, setStationModalVisible] = useState(false);
-
-  // Delivery video carousel
-  const [activeVideo, setActiveVideo] = useState(0);
-  const activeVideoRef = useRef(0);
-  const videoScrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const [activeBanner, setActiveBanner] = useState(0);
+  const bannerScrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      const next = (activeVideoRef.current + 1) % DELIVERY_VIDEOS.length;
-      activeVideoRef.current = next;
-      setActiveVideo(next);
-      videoScrollRef.current?.scrollTo({
-        x: next * VIDEO_WIDTH,
+    const timer = setTimeout(() => {
+      const next = (activeBanner + 1) % HOME_BANNERS.length;
+      setActiveBanner(next);
+      bannerScrollRef.current?.scrollTo({
+        x: next * BANNER_WIDTH,
         animated: true,
       });
-    }, 8000);
+    }, BANNER_INTERVAL_MS);
 
-    return () => clearInterval(timer);
-  }, []);
+    return () => clearTimeout(timer);
+  }, [activeBanner]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -263,46 +247,43 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Delivery Videos (Auto-scroll) - above the wallet cards */}
-        <ScrollView
-          ref={videoScrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={(e) => {
-            const index = Math.round(
-              e.nativeEvent.contentOffset.x / VIDEO_WIDTH
-            );
-            activeVideoRef.current = index;
-            setActiveVideo(index);
-          }}
-          style={styles.videoScroll}
-        >
-          {DELIVERY_VIDEOS.map((item) => (
-            <View key={item.id} style={styles.videoCard}>
-              <DeliveryVideo videoUrl={item.video} />
-              <LinearGradient
-                colors={["transparent", "rgba(0,0,0,0.75)"]}
-                style={styles.videoOverlay}
-              >
-                <Text style={styles.videoTitle}>{item.title}</Text>
-                <Text style={styles.videoSubtitle}>{item.subtitle}</Text>
-              </LinearGradient>
-            </View>
-          ))}
-        </ScrollView>
+        {/* Home Image Carousel */}
 
-        <View style={styles.videoDots}>
-          {DELIVERY_VIDEOS.map((item, i) => (
-            <View
-              key={item.id}
-              style={[
-                styles.videoDot,
-                i === activeVideo && styles.videoDotActive,
-              ]}
-            />
-          ))}
-        </View>
+<ScrollView
+  ref={bannerScrollRef}
+  horizontal
+  pagingEnabled
+  showsHorizontalScrollIndicator={false}
+  onMomentumScrollEnd={(e) => {
+    const index = Math.round(
+      e.nativeEvent.contentOffset.x / BANNER_WIDTH
+    );
+
+    setActiveBanner(index);
+  }}
+>
+  {HOME_BANNERS.map((item) => (
+    <View key={item.id} style={styles.homeBanner}>
+      <Image
+        source={{ uri: item.image }}
+        style={styles.homeBannerImage}
+        resizeMode="cover"
+      />
+    </View>
+  ))}
+</ScrollView>
+
+<View style={styles.bannerDots}>
+  {HOME_BANNERS.map((item, index) => (
+    <View
+      key={item.id}
+      style={[
+        styles.bannerDot,
+        activeBanner === index && styles.bannerDotActive,
+      ]}
+    />
+  ))}
+</View>
 
         {/* Quick Summary Cards (Dashboard) */}
         {/* <View style={styles.statsGrid}>
@@ -389,9 +370,7 @@ export default function HomeScreen() {
               key={category.id}
               style={styles.categoryItem}
               activeOpacity={0.8}
-              onPress={() =>
-                Alert.alert(category.title, "Category details coming soon.")
-              }
+              onPress={() => router.push(CATEGORY_ROUTES[category.id] as any)}
             >
               <View style={styles.categoryImageBox}>
                 <Image
@@ -876,49 +855,31 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  // Delivery video carousel
-  videoScroll: {
-    borderRadius: THEME.radius.lg,
-    marginBottom: 8,
-  },
-  videoCard: {
-    width: VIDEO_WIDTH,
-    height: 180,
+  homeBanner: {
+    width: BANNER_WIDTH,
+    height: BANNER_HEIGHT,
     borderRadius: THEME.radius.lg,
     overflow: "hidden",
     backgroundColor: "#0F172A",
   },
-  videoOverlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 14,
-    paddingTop: 40,
+  homeBannerImage: {
+    width: "100%",
+    height: "100%",
   },
-  videoTitle: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: "#FFFFFF",
-  },
-  videoSubtitle: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.9)",
-    marginTop: 2,
-  },
-  videoDots: {
+  bannerDots: {
     flexDirection: "row",
     justifyContent: "center",
     gap: 6,
+    marginTop: 10,
     marginBottom: 16,
   },
-  videoDot: {
+  bannerDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: "#CBD5E1",
   },
-  videoDotActive: {
+  bannerDotActive: {
     width: 18,
     backgroundColor: THEME.colors.primary,
   },
