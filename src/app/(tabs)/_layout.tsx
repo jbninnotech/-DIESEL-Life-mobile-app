@@ -8,11 +8,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 const COLORS = {
-  active: "#22ccd8",
+  active: "#0891B2",
   inactive: "#94A3B8",
   bg: "#FFFFFF",
-  border: "#E5E7EB",
-  gradient: ["#22ccd8", "#16A34A"] as const,
+  border: "#F1F5F9",
+  gradient: ["#22CCD8", "#0EA5E9"] as const,
 };
 
 interface TabConfig {
@@ -22,59 +22,47 @@ interface TabConfig {
   inactive: IconName;
 }
 
-const TABS: TabConfig[] = [
-  {
+const TABS: Record<string, TabConfig> = {
+  home: {
     name: "(home)/index",
     title: "Home",
     active: "home",
     inactive: "home-outline",
   },
-  {
+  orders: {
     name: "(orders)/index",
     title: "Orders",
     active: "clipboard-list",
     inactive: "clipboard-list-outline",
   },
-  {
+  wallet: {
     name: "(wallet)/index",
     title: "Wallet",
     active: "wallet",
     inactive: "wallet-outline",
   },
-  {
+  profile: {
     name: "(profile)/index",
     title: "Profile",
     active: "account-circle",
     inactive: "account-circle-outline",
   },
-];
+};
 
 function TabIcon({ focused, tab }: { focused: boolean; tab: TabConfig }) {
-  if (focused) {
-    return (
-      <LinearGradient
-        colors={COLORS.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.iconWrap}
-      >
-        <MaterialCommunityIcons name={tab.active} size={24} color="#FFFFFF" />
-      </LinearGradient>
-    );
-  }
-
   return (
-    <View style={styles.iconWrap}>
+    <View style={styles.tabIconContainer}>
       <MaterialCommunityIcons
-        name={tab.inactive}
+        name={focused ? tab.active : tab.inactive}
         size={24}
-        color={COLORS.inactive}
+        color={focused ? COLORS.active : COLORS.inactive}
       />
+      {focused && <View style={styles.activeDot} />}
     </View>
   );
 }
 
-function BookTabButton({
+function CenterBookButton({
   onPress,
   focused,
 }: {
@@ -82,20 +70,26 @@ function BookTabButton({
   focused: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.bookWrap}>
-      <View style={styles.bookRing}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.centerButtonWrap,
+        pressed && styles.pressed,
+      ]}
+    >
+      <View style={styles.centerButtonRing}>
         <LinearGradient
           colors={COLORS.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.bookCircle}
+          style={styles.centerButtonCircle}
         >
-          <MaterialCommunityIcons name="water" size={28} color="#FFFFFF" />
+          <MaterialCommunityIcons name="water" size={26} color="#FFFFFF" />
         </LinearGradient>
       </View>
       <Text
         style={[
-          styles.label,
+          styles.tabLabel,
           { color: focused ? COLORS.active : COLORS.inactive },
         ]}
       >
@@ -107,18 +101,7 @@ function BookTabButton({
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-  const bottom = Math.max(insets.bottom, Platform.OS === "ios" ? 0 : 8);
-
-  const renderTab = (tab: TabConfig) => (
-    <Tabs.Screen
-      key={tab.name}
-      name={tab.name}
-      options={{
-        title: tab.title,
-        tabBarIcon: ({ focused }) => <TabIcon focused={focused} tab={tab} />,
-      }}
-    />
-  );
+  const bottomInset = Math.max(insets.bottom, Platform.OS === "ios" ? 16 : 8);
 
   return (
     <Tabs
@@ -127,31 +110,52 @@ export default function TabsLayout() {
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: COLORS.active,
         tabBarInactiveTintColor: COLORS.inactive,
-        tabBarLabelStyle: styles.label,
+        tabBarLabelStyle: styles.tabLabel,
+        tabBarItemStyle: styles.tabItem,
         tabBarStyle: {
-          height: 62 + bottom,
+          height: 60 + bottomInset,
+          paddingBottom: bottomInset,
           paddingTop: 8,
-          paddingBottom: bottom,
           backgroundColor: COLORS.bg,
-          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopWidth: 1,
           borderTopColor: COLORS.border,
-          elevation: 8,
-          shadowColor: "#000",
-          shadowOpacity: 0.08,
-          shadowOffset: { width: 0, height: -3 },
-          shadowRadius: 8,
-          overflow: "visible",
+          elevation: 12,
+          shadowColor: "#0F172A",
+          shadowOpacity: 0.06,
+          shadowOffset: { width: 0, height: -4 },
+          shadowRadius: 10,
         },
       }}
     >
-      {TABS.slice(0, 2).map(renderTab)}
+      {/* 1. Left Tab: Home */}
+      <Tabs.Screen
+        name="(home)/index"
+        options={{
+          title: "Home",
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} tab={TABS.home} />
+          ),
+        }}
+      />
 
+      {/* 2. Left Tab: Orders */}
+      <Tabs.Screen
+        name="(orders)/index"
+        options={{
+          title: "Orders",
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} tab={TABS.orders} />
+          ),
+        }}
+      />
+
+      {/* 3. DEAD CENTER: Book */}
       <Tabs.Screen
         name="(book)/index"
         options={{
           title: "Book",
           tabBarButton: (props) => (
-            <BookTabButton
+            <CenterBookButton
               onPress={props.onPress}
               focused={props.accessibilityState?.selected ?? false}
             />
@@ -159,44 +163,81 @@ export default function TabsLayout() {
         }}
       />
 
-      {TABS.slice(2).map(renderTab)}
+      {/* 4. Right Tab: Wallet */}
+      <Tabs.Screen
+        name="(wallet)/index"
+        options={{
+          title: "Wallet",
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} tab={TABS.wallet} />
+          ),
+        }}
+      />
+
+      {/* 5. Right Tab: Profile */}
+      <Tabs.Screen
+        name="(profile)/index"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} tab={TABS.profile} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  iconWrap: {
-    width: 52,
-    height: 30,
-    borderRadius: 15,
+  tabItem: {
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
   },
-  label: {
+  tabIconContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: 28,
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.active,
+    position: "absolute",
+    bottom: -6,
+  },
+  tabLabel: {
     fontSize: 11,
     fontWeight: "600",
-    marginTop: 2,
+    letterSpacing: 0.2,
+    marginTop: 4,
   },
-  bookWrap: {
+  centerButtonWrap: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
+    height: 48,
   },
-  bookRing: {
-    marginTop: -28,
-    padding: 5,
-    borderRadius: 40,
+  pressed: {
+    transform: [{ scale: 0.95 }],
+  },
+  centerButtonRing: {
+    position: "absolute",
+    top: -22,
+    padding: 4,
+    borderRadius: 32,
     backgroundColor: COLORS.bg,
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
+    elevation: 8,
+    shadowColor: "#0891B2",
+    shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
   },
-  bookCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  centerButtonCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -648,25 +648,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Recommended Services / Why Diesel Life banner */}
-        <View style={styles.whyCard}>
-          <LinearGradient
-            colors={["#0F172A", "#1E293B"]}
-            style={styles.whyGradient}
-          >
-            <View style={styles.whyHeader}>
-              <MaterialCommunityIcons
-                name="shield-check"
-                size={24}
-                color="#22CCD8"
-              />
-              <Text style={styles.whyTitle}>PESO Certified & Guaranteed</Text>
-            </View>
-            <Text style={styles.whySubtitle}>
-              Every liter delivered is filtered, 100% density verified, and
-              digitally metered with automated zero-loss safety seals.
-            </Text>
-          </LinearGradient>
-        </View>
+     
       </ScrollView>
 
       {/* Booking Confirmation Modal */}
