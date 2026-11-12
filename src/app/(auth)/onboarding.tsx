@@ -3,8 +3,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   FlatList,
+  ImageBackground,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -22,80 +24,83 @@ type Props = {
 
 type Slide = {
   id: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  image: string;
   title: string;
   description: string;
 };
 
-const ACCENT = "#35d1e6";
-const GRADIENT = ["#1e6fe8", "#35d1e6", "#2fdc8f"] as const;
+const ACCENT = "#FF8A00";
 
+// Replace these with your actual Cloudinary secure URLs
 const SLIDES: Slide[] = [
   {
     id: "1",
-    icon: "water",
+    image:
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794473312/Golden_Diesel_Pouring_from_Green_Nozzle.png",
     title: "Diesel Delivered To You",
     description:
-      "Order fuel from your phone and get it delivered right at your site, no more trips to the station.",
+      "Order premium diesel from your phone and get it delivered directly to your location.",
   },
   {
     id: "2",
-    icon: "location",
+    image:
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794474028/Dieselfy_Delivery_at_Sunset.png",
     title: "Track Your Tanker Live",
     description:
-      "Follow your delivery on the map in real time and know exactly when it arrives.",
+      "Follow your diesel delivery in real time and know exactly when your tanker arrives.",
   },
   {
     id: "3",
-    icon: "shield-checkmark",
+    image:
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794473793/Dieselfy_Fueling_at_Sunset.png",
     title: "Safe, Fast & Reliable",
     description:
-      "Certified drivers, accurate metering and transparent pricing on every single order.",
+      "Enjoy safe fuel delivery, professional drivers and reliable service at your doorstep.",
   },
 ];
 
 export default function Onboarding({ onDone }: Props) {
   const router = useRouter();
   const { width } = useWindowDimensions();
+
   const listRef = useRef<FlatList<Slide>>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
+
   const [index, setIndex] = useState(0);
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
 
   const isLast = index === SLIDES.length - 1;
 
   const finish = () => {
-    if (onDone) return onDone();
+    if (onDone) {
+      onDone();
+      return;
+    }
+
     router.replace("/(auth)/login");
   };
 
   const next = () => {
-    if (isLast) return finish();
-    listRef.current?.scrollToIndex({ index: index + 1, animated: true });
+    if (isLast) {
+      finish();
+      return;
+    }
+
+    listRef.current?.scrollToIndex({
+      index: index + 1,
+      animated: true,
+    });
   };
 
-  const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+  const onMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+
+    setIndex(Math.max(0, Math.min(newIndex, SLIDES.length - 1)));
   };
 
   return (
-    <LinearGradient
-      colors={GRADIENT}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.container}
-    >
-    <SafeAreaView style={styles.safe}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-
-      <View style={styles.topBar}>
-        {!isLast ? (
-          <Pressable onPress={finish} hitSlop={12}>
-            <Text style={styles.skip}>Skip</Text>
-          </Pressable>
-        ) : (
-          <View />
-        )}
-      </View>
 
       <Animated.FlatList
         ref={listRef}
@@ -107,22 +112,38 @@ export default function Onboarding({ onDone }: Props) {
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onMomentumEnd}
         onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: true }
+          [
+            {
+              nativeEvent: {
+                contentOffset: {
+                  x: scrollX,
+                },
+              },
+            },
+          ],
+          {
+            useNativeDriver: false,
+          }
         )}
         scrollEventThrottle={16}
-        renderItem={({ item, index: i }) => {
-          const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
-          const scale = scrollX.interpolate({
-            inputRange,
-            outputRange: [0.6, 1, 0.6],
-            extrapolate: "clamp",
-          });
+        getItemLayout={(_, i) => ({
+          length: width,
+          offset: width * i,
+          index: i,
+        })}
+        renderItem={({ item, index: slideIndex }) => {
+          const inputRange = [
+            (slideIndex - 1) * width,
+            slideIndex * width,
+            (slideIndex + 1) * width,
+          ];
+
           const opacity = scrollX.interpolate({
             inputRange,
-            outputRange: [0, 1, 0],
+            outputRange: [0.2, 1, 0.2],
             extrapolate: "clamp",
           });
+
           const translateY = scrollX.interpolate({
             inputRange,
             outputRange: [30, 0, 30],
@@ -131,160 +152,236 @@ export default function Onboarding({ onDone }: Props) {
 
           return (
             <View style={[styles.slide, { width }]}>
-              <Animated.View
-                style={[styles.iconCard, { opacity, transform: [{ scale }] }]}
+              <ImageBackground
+                source={{ uri: item.image }}
+                resizeMode="cover"
+                style={styles.backgroundImage}
+                onLoadEnd={() =>
+                  setLoadedImages((prev) => ({
+                    ...prev,
+                    [item.id]: true,
+                  }))
+                }
               >
-                <View style={styles.iconCircle}>
-                  <Ionicons name={item.icon} size={84} color={ACCENT} />
-                </View>
-              </Animated.View>
+                {!loadedImages[item.id] && (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={ACCENT} />
+                  </View>
+                )}
 
-              <Animated.View
-                style={{ opacity, transform: [{ translateY }], alignItems: "center" }}
-              >
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.description}>{item.description}</Text>
-              </Animated.View>
+                <LinearGradient
+                  colors={[
+                    "rgba(0,0,0,0.05)",
+                    "rgba(0,0,0,0.20)",
+                    "rgba(0,0,0,0.75)",
+                    "rgba(0,0,0,0.98)",
+                  ]}
+                  locations={[0, 0.4, 0.7, 1]}
+                  style={styles.imageGradient}
+                />
+
+                <Animated.View
+                  style={[
+                    styles.slideContent,
+                    {
+                      opacity,
+                      transform: [{ translateY }],
+                    },
+                  ]}
+                >
+                  <Text style={styles.title}>{item.title}</Text>
+
+                  <Text style={styles.description}>{item.description}</Text>
+                </Animated.View>
+              </ImageBackground>
             </View>
           );
         }}
       />
 
-      <View style={styles.footer}>
-        <View style={styles.dots}>
-          {SLIDES.map((_, i) => {
-            const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
-            const dotWidth = scrollX.interpolate({
-              inputRange,
-              outputRange: [8, 28, 8],
-              extrapolate: "clamp",
-            });
-            const dotOpacity = scrollX.interpolate({
-              inputRange,
-              outputRange: [0.4, 1, 0.4],
-              extrapolate: "clamp",
-            });
-            return (
-              <Animated.View
-                key={i}
-                style={[styles.dot, { width: dotWidth, opacity: dotOpacity }]}
-              />
-            );
-          })}
+      <SafeAreaView style={styles.overlay} pointerEvents="box-none">
+        <View style={styles.topBar}>
+          {!isLast ? (
+            <Pressable onPress={finish} hitSlop={12} style={styles.skipButton}>
+              <Text style={styles.skipText}>Skip</Text>
+            </Pressable>
+          ) : (
+            <View />
+          )}
         </View>
 
-        <Pressable
-          onPress={next}
-          style={({ pressed }) => [
-            styles.button,
-            pressed && { transform: [{ scale: 0.97 }], opacity: 0.92 },
-          ]}
-        >
-          <Text style={styles.buttonText}>{isLast ? "Get Started" : "Next"}</Text>
-          <Ionicons name="arrow-forward" size={20} color={ACCENT} />
-        </Pressable>
-      </View>
-    </SafeAreaView>
-    </LinearGradient>
+        <View style={styles.footer}>
+          <View style={styles.dots}>
+            {SLIDES.map((_, dotIndex) => {
+              const inputRange = [
+                (dotIndex - 1) * width,
+                dotIndex * width,
+                (dotIndex + 1) * width,
+              ];
+
+              const dotWidth = scrollX.interpolate({
+                inputRange,
+                outputRange: [8, 28, 8],
+                extrapolate: "clamp",
+              });
+
+              const dotOpacity = scrollX.interpolate({
+                inputRange,
+                outputRange: [0.4, 1, 0.4],
+                extrapolate: "clamp",
+              });
+
+              return (
+                <Animated.View
+                  key={dotIndex}
+                  style={[
+                    styles.dot,
+                    {
+                      width: dotWidth,
+                      opacity: dotOpacity,
+                    },
+                  ]}
+                />
+              );
+            })}
+          </View>
+
+          <Pressable
+            onPress={next}
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Text style={styles.buttonText}>
+              {isLast ? "Get Started" : "Next"}
+            </Text>
+
+            <Ionicons name="arrow-forward" size={21} color="#fff" />
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#000",
   },
-  safe: {
-    flex: 1,
-  },
-  topBar: {
-    height: 44,
-    paddingHorizontal: 24,
-    alignItems: "flex-end",
-    justifyContent: "center",
-  },
-  skip: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-    opacity: 0.9,
-  },
+
   slide: {
     flex: 1,
+    backgroundColor: "#000",
+  },
+
+  backgroundImage: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "flex-end",
+  },
+
+  imageGradient: {
+    ...StyleSheet.absoluteFill,
+  },
+
+  loadingContainer: {
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 32,
+    backgroundColor: "#101820",
   },
-  iconCard: {
-    width: 240,
-    height: 240,
-    borderRadius: 36,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 48,
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 12,
+
+  slideContent: {
+    paddingHorizontal: 28,
+    paddingBottom: 185,
   },
-  iconCircle: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: "#e8fafd",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+
   title: {
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 35,
+    fontWeight: "900",
     color: "#fff",
-    textAlign: "center",
-    letterSpacing: 0.4,
+    lineHeight: 43,
+    letterSpacing: 0.2,
   },
+
   description: {
     marginTop: 14,
     fontSize: 16,
-    lineHeight: 24,
-    color: "#fff",
-    opacity: 0.92,
-    textAlign: "center",
-    maxWidth: 320,
+    lineHeight: 25,
+    color: "#E5E7EB",
+    maxWidth: 330,
   },
+
+  overlay: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: "space-between",
+  },
+
+  topBar: {
+    height: 55,
+    paddingHorizontal: 25,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+
+  skipButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 5,
+  },
+
+  skipText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
   footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingHorizontal: 26,
+    paddingBottom: 20,
     alignItems: "center",
   },
+
   dots: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: 25,
   },
+
   dot: {
     height: 8,
-    borderRadius: 4,
-    backgroundColor: "#fff",
+    borderRadius: 5,
+    backgroundColor: ACCENT,
     marginHorizontal: 4,
   },
+
   button: {
     width: "100%",
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#fff",
+    height: 58,
+    borderRadius: 18,
+    backgroundColor: ACCENT,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    gap: 12,
+    shadowColor: ACCENT,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    elevation: 6,
   },
+
+  buttonPressed: {
+    transform: [{ scale: 0.97 }],
+    opacity: 0.9,
+  },
+
   buttonText: {
-    color: ACCENT,
+    color: "#fff",
     fontSize: 17,
     fontWeight: "800",
     letterSpacing: 0.3,

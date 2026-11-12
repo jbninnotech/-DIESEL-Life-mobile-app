@@ -35,11 +35,11 @@ const TABS: TabConfig[] = [
     active: "clipboard-list",
     inactive: "clipboard-list-outline",
   },
-  {
-    name: "(wallet)/index",
-    title: "Wallet",
-    active: "wallet",
-    inactive: "wallet-outline",
+   {
+    name: "(track)/index",
+    title: "Track",
+    active: "map-marker-path",
+    inactive: "map-marker-outline",
   },
   {
     name: "(profile)/index",
