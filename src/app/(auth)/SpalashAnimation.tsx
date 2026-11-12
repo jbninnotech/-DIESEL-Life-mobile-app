@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useEffect, useMemo, useRef } from "react";
 import {
   Animated,
   Easing,
@@ -8,9 +10,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Svg, {
   Circle,
   ClipPath,
