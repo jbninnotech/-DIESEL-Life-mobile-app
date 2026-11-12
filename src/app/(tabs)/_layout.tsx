@@ -127,7 +127,7 @@ export default function TabsLayout() {
         },
       }}
     >
-      {/* 1. Left Tab: Home */}
+      {/* 1. Home */}
       <Tabs.Screen
         name="(home)/index"
         options={{
@@ -138,7 +138,7 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* 2. Left Tab: Orders */}
+      {/* 2. Orders */}
       <Tabs.Screen
         name="(orders)/index"
         options={{
@@ -163,7 +163,7 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* 4. Right Tab: Wallet */}
+      {/* 4. Wallet */}
       <Tabs.Screen
         name="(wallet)/index"
         options={{
@@ -174,7 +174,7 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* 5. Right Tab: Profile */}
+      {/* 5. Profile */}
       <Tabs.Screen
         name="(profile)/index"
         options={{

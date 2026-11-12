@@ -1,3 +1,5 @@
+
+
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -22,67 +24,42 @@ import {
   MOCK_BANNERS,
   MOCK_ORDERS,
   MOCK_SERVICES,
-  MOCK_STATIONS,
   MOCK_USER,
 } from "../../../data/mockData";
+import {
+  CATEGORY_ROUTES,
+  PRODUCT_CATEGORIES,
+} from "../../../data/Servicecategories";
 import { Banner, FuelStation, ServiceItem } from "../../../types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BANNER_WIDTH = SCREEN_WIDTH - 32;
 const BANNER_HEIGHT = 180;
-const BANNER_INTERVAL_MS = 5000;
+const BANNER_INTERVAL_MS = 2000;
 
 const HOME_BANNERS = [
   {
     id: "1",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794294900/Fuel_Quality_and_Kenyan_Cars__Fuel_quality_varies__Some_engines_are_sensitive.__High-compression_engines_knock_easily._Older_engines_tolerate_poor_fuel_better.__That_s_why_simple_engines_last_longer_he.jpg",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794474225/Dieselify_On-Site_Delivery_Banner.png",
   },
   {
     id: "2",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794296192/Deisel_Delivery.jpg",
-  },
-  {
-    id: "3",
-    image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794206243/WhatsApp_Image_2026-11-09_at_12.06.37_PM.jpg",
-  },
-];
-
-// Replace each image with your Cloudinary image link (png/jpg)
-const PRODUCT_CATEGORIES = [
-  {
-    id: "1",
-    title: "Emergency Diesel",
-    image:
       "https://res.cloudinary.com/yozeshlg/image/upload/v1794294900/Fuel_Quality_and_Kenyan_Cars__Fuel_quality_varies__Some_engines_are_sensitive.__High-compression_engines_knock_easily._Older_engines_tolerate_poor_fuel_better.__That_s_why_simple_engines_last_longer_he.jpg",
   },
   {
-    id: "2",
-    title: "Diesel Delivery",
-    image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794296192/Deisel_Delivery.jpg",
-  },
-  {
     id: "3",
-    title: "Doorstep Delivery",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794296197/Download_premium_png_of_PNG_Happy_delivery_person_riding_scooter_by_Pinn_about_delivery_man_png_delivery_png_delivery_boy_delivery_boy_png_and_delivery_man_motorcycle_15237807.jpg",
-  },
-  {
-    id: "4",
-    title: "Bulk Commercial",
-    image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794206243/WhatsApp_Image_2026-11-09_at_12.06.37_PM.jpg",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794477176/Doorstep_Diesel_Delivery_Showcase.png",
   },
 ];
 
-const CATEGORY_ROUTES: Record<string, string> = {
-  "1": "/(tabs)/(book)",
-  "2": "/(tabs)/(book)",
-  "3": "/(tabs)/(book)",
-  "4": "/(tabs)/(book)",
+// Active delivery (replace with real data from your API / state)
+const ACTIVE_DELIVERY = {
+  orderId: "DL-89421",
+  details: "500 L Diesel",
+  eta: "Arriving in 25 min",
 };
 
 export default function HomeScreen() {
@@ -128,11 +105,6 @@ export default function HomeScreen() {
 
   const recentOrders = MOCK_ORDERS.slice(0, 2);
 
-  const handleBookService = (service: ServiceItem) => {
-    setSelectedService(service);
-    setBookingModalVisible(true);
-  };
-
   const handleConfirmBooking = () => {
     Alert.alert(
       "Service Requested",
@@ -147,17 +119,19 @@ export default function HomeScreen() {
     );
   };
 
-  const handleStationPress = (station: FuelStation) => {
-    setSelectedStation(station);
-    setStationModalVisible(true);
-  };
-
   const handleNotificationPress = () => {
     Alert.alert(
       "Notifications",
       "• Order #DL-89421 Bowser has arrived at your warehouse.\n• Rate Update: Diesel today at ₹89.62/L across all Bangalore depots.\n• Flat ₹2.50 cashback credited to your wallet.",
       [{ text: "Close" }]
     );
+  };
+
+  const handleTrackPress = () => {
+    router.push({
+      pathname: "/(tabs)/(track)",
+      params: { orderId: ACTIVE_DELIVERY.orderId },
+    } as any);
   };
 
   return (
@@ -248,143 +222,112 @@ export default function HomeScreen() {
         }
       >
         {/* Home Image Carousel */}
-
-<ScrollView
-  ref={bannerScrollRef}
-  horizontal
-  pagingEnabled
-  showsHorizontalScrollIndicator={false}
-  onMomentumScrollEnd={(e) => {
-    const index = Math.round(
-      e.nativeEvent.contentOffset.x / BANNER_WIDTH
-    );
-
-    setActiveBanner(index);
-  }}
->
-  {HOME_BANNERS.map((item) => (
-    <View key={item.id} style={styles.homeBanner}>
-      <Image
-        source={{ uri: item.image }}
-        style={styles.homeBannerImage}
-        resizeMode="cover"
-      />
-    </View>
-  ))}
-</ScrollView>
-
-<View style={styles.bannerDots}>
-  {HOME_BANNERS.map((item, index) => (
-    <View
-      key={item.id}
-      style={[
-        styles.bannerDot,
-        activeBanner === index && styles.bannerDotActive,
-      ]}
-    />
-  ))}
-</View>
-
-        {/* Quick Summary Cards (Dashboard) */}
-        {/* <View style={styles.statsGrid}>
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => router.push("/(tabs)/(wallet)" as any)}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.statIconWrap, { backgroundColor: "#DCFCE7" }]}>
-              <MaterialCommunityIcons
-                name="wallet-outline"
-                size={22}
-                color="#16A34A"
+        <ScrollView
+          ref={bannerScrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) => {
+            const index = Math.round(
+              e.nativeEvent.contentOffset.x / BANNER_WIDTH
+            );
+            setActiveBanner(index);
+          }}
+        >
+          {HOME_BANNERS.map((item) => (
+            <View key={item.id} style={styles.homeBanner}>
+              <Image
+                source={{ uri: item.image }}
+                style={styles.homeBannerImage}
+                resizeMode="cover"
               />
             </View>
-            <Text style={styles.statLabel}>Wallet Balance</Text>
-            <Text style={styles.statValue}>
-              ₹{MOCK_USER.walletBalance.toLocaleString("en-IN")}
-            </Text>
-            <Text style={styles.statSub}>Tap to top up</Text>
-          </TouchableOpacity>
+          ))}
+        </ScrollView>
 
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => router.push("/(tabs)/(orders)" as any)}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.statIconWrap, { backgroundColor: "#E8F3FC" }]}>
-              <MaterialCommunityIcons
-                name="truck-fast-outline"
-                size={22}
-                color="#0875D1"
-              />
-            </View>
-            <Text style={styles.statLabel}>Active Orders</Text>
-            <Text style={styles.statValue}>{MOCK_USER.activeOrdersCount}</Text>
-            <Text style={styles.statSub}>1 Arrived at site</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => router.push("/(tabs)/(orders)" as any)}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.statIconWrap, { backgroundColor: "#FEF3C7" }]}>
-              <MaterialCommunityIcons
-                name="clipboard-check-outline"
-                size={22}
-                color="#D97706"
-              />
-            </View>
-            <Text style={styles.statLabel}>Total Orders</Text>
-            <Text style={styles.statValue}>{MOCK_USER.totalOrdersCount}</Text>
-            <Text style={styles.statSub}>All-time fulfilled</Text>
-          </TouchableOpacity>
-
-          <View style={styles.statCard}>
-            <View style={[styles.statIconWrap, { backgroundColor: "#F3E8FF" }]}>
-              <MaterialCommunityIcons
-                name="star-circle-outline"
-                size={22}
-                color="#9333EA"
-              />
-            </View>
-            <Text style={styles.statLabel}>Loyalty Points</Text>
-            <Text style={styles.statValue}>
-              {MOCK_USER.loyaltyPoints.toLocaleString("en-IN")}
-            </Text>
-            <Text style={styles.statSub}>{MOCK_USER.memberTier}</Text>
-          </View>
-        </View> */}
-        {/* Product Categories (Horizontal Scroll) */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Our Services</Text>
+        <View style={styles.bannerDots}>
+          {HOME_BANNERS.map((item, index) => (
+            <View
+              key={item.id}
+              style={[
+                styles.bannerDot,
+                activeBanner === index && styles.bannerDotActive,
+              ]}
+            />
+          ))}
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryScroll}
-        >
-          {PRODUCT_CATEGORIES.map((category) => (
+        {/* Our Services */}
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Our Services</Text>
+
+          <TouchableOpacity
+            onPress={() => router.push("/(others)/Services" as any)}
+          >
+            <Text style={styles.seeAllText}>See All</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.serviceGrid}>
+          {PRODUCT_CATEGORIES.slice(0, 4).map((category) => (
             <TouchableOpacity
               key={category.id}
-              style={styles.categoryItem}
+              style={styles.serviceCard}
               activeOpacity={0.8}
               onPress={() => router.push(CATEGORY_ROUTES[category.id] as any)}
             >
-              <View style={styles.categoryImageBox}>
+              <View style={styles.serviceImageContainer}>
                 <Image
                   source={{ uri: category.image }}
-                  style={styles.categoryImage}
-                  resizeMode="cover"
+                  style={styles.serviceImage}
+                  resizeMode="contain"
                 />
               </View>
-              <Text style={styles.categoryLabel} numberOfLines={3}>
+
+              <Text style={styles.serviceTitle} numberOfLines={2}>
                 {category.title}
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
+
+        {/* Active Delivery Card -> Track page */}
+
+        <TouchableOpacity
+          style={styles.activeCard}
+          activeOpacity={0.9}
+          onPress={handleTrackPress}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.activeTitle}>Active Delivery</Text>
+
+            <Text style={styles.activeOrder}>
+              Order #{ACTIVE_DELIVERY.orderId}
+            </Text>
+
+            <Text style={styles.activeSub}>
+              {ACTIVE_DELIVERY.details} • {ACTIVE_DELIVERY.eta}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.trackBtn}
+              activeOpacity={0.85}
+              onPress={handleTrackPress}
+              accessibilityLabel="Track order"
+            >
+              <Text style={styles.trackBtnText}>Track Order</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Image
+            source={{
+              uri: "https://res.cloudinary.com/yozeshlg/image/upload/v1794492813/Blue_Semi_Truck_With_Matching_Trailer_On_Highway_Commercial_Transportation_Long_Haul_Trucking_PNG_Transparent_Image_and_Clipart_for_Free_Download.jpg",
+            }}
+            style={styles.activeDeliveryImage}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
 
         {/* Promotional / Offer Banners (Horizontal Scroll) */}
         <View style={styles.sectionHeader}>
@@ -437,149 +380,7 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
 
-        {/* Diesel Services Section */}
-        {/* <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Available Diesel Services</Text>
-          <Text style={styles.sectionCount}>
-            {filteredServices.length} Services
-          </Text>
-        </View> */}
-
-        {/* <View style={styles.servicesGrid}>
-          {filteredServices.map((service: ServiceItem) => (
-            <TouchableOpacity
-              key={service.id}
-              style={styles.serviceCard}
-              onPress={() => handleBookService(service)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.serviceHeader}>
-                <View style={styles.serviceIconCircle}>
-                  <MaterialCommunityIcons
-                    name={service.icon as any}
-                    size={24}
-                    color={THEME.colors.primary}
-                  />
-                </View>
-                {service.tag && (
-                  <View style={styles.serviceBadge}>
-                    <Text style={styles.serviceBadgeText}>{service.tag}</Text>
-                  </View>
-                )}
-              </View>
-
-              <Text style={styles.serviceTitle}>{service.title}</Text>
-              <Text style={styles.serviceSubtitle} numberOfLines={2}>
-                {service.subtitle}
-              </Text>
-
-              <View style={styles.serviceFooter}>
-                {service.pricePerLiter ? (
-                  <View>
-                    <Text style={styles.servicePriceLabel}>Today's Rate</Text>
-                    <Text style={styles.servicePrice}>
-                      ₹{service.pricePerLiter.toFixed(2)}
-                      <Text style={styles.servicePerL}>/L</Text>
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={styles.servicePriceLabel}>Custom Quote</Text>
-                )}
-
-                <View style={styles.bookPill}>
-                  <Text style={styles.bookPillText}>Book</Text>
-                  <MaterialCommunityIcons
-                    name="chevron-right"
-                    size={16}
-                    color="#FFFFFF"
-                  />
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View> */}
-
-        {/* Nearby Fuel Stations Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Nearby Fuel Terminals</Text>
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "Terminals",
-                "Displaying verified Diesel Life PESO depots nearest to your GPS coordinates."
-              )
-            }
-          >
-            <Text style={styles.seeAllText}>View Map</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.stationsList}>
-          {MOCK_STATIONS.map((station: FuelStation) => (
-            <TouchableOpacity
-              key={station.id}
-              style={styles.stationCard}
-              onPress={() => handleStationPress(station)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.stationIcon}>
-                <MaterialCommunityIcons
-                  name="gas-station-outline"
-                  size={26}
-                  color={THEME.colors.primary}
-                />
-              </View>
-
-              <View style={styles.stationInfo}>
-                <View style={styles.stationTitleRow}>
-                  <Text style={styles.stationName} numberOfLines={1}>
-                    {station.name}
-                  </Text>
-                  <View style={styles.ratingBadge}>
-                    <MaterialCommunityIcons
-                      name="star"
-                      size={13}
-                      color="#F59E0B"
-                    />
-                    <Text style={styles.ratingText}>{station.rating}</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.stationAddress} numberOfLines={1}>
-                  {station.address}
-                </Text>
-
-                <View style={styles.stationDetailsRow}>
-                  <View style={styles.metaItem}>
-                    <MaterialCommunityIcons
-                      name="map-marker-distance"
-                      size={14}
-                      color={THEME.colors.textMuted}
-                    />
-                    <Text style={styles.metaText}>{station.distance}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <MaterialCommunityIcons
-                      name="clock-outline"
-                      size={14}
-                      color={THEME.colors.secondary}
-                    />
-                    <Text
-                      style={[
-                        styles.metaText,
-                        { color: THEME.colors.secondary },
-                      ]}
-                    >
-                      {station.openStatus}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Recent Activities Section */}
+        {/* Recent Orders */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Orders</Text>
           <TouchableOpacity
@@ -648,7 +449,25 @@ export default function HomeScreen() {
         </View>
 
         {/* Recommended Services / Why Diesel Life banner */}
-     
+        <View style={styles.whyCard}>
+          <LinearGradient
+            colors={["#0F172A", "#1E293B"]}
+            style={styles.whyGradient}
+          >
+            <View style={styles.whyHeader}>
+              <MaterialCommunityIcons
+                name="shield-check"
+                size={24}
+                color="#22CCD8"
+              />
+              <Text style={styles.whyTitle}>PESO Certified & Guaranteed</Text>
+            </View>
+            <Text style={styles.whySubtitle}>
+              Every liter delivered is filtered, 100% density verified, and
+              digitally metered with automated zero-loss safety seals.
+            </Text>
+          </LinearGradient>
+        </View>
       </ScrollView>
 
       {/* Booking Confirmation Modal */}
@@ -754,14 +573,14 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   brandBadge: {
-  width: 44,
-  height: 44,
-  borderRadius: 12,
-  backgroundColor: "rgba(255, 255, 255, 0.2)",
-  alignItems: "center",
-  justifyContent: "center",
-  overflow: "hidden",
-},
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
   brandName: {
     fontSize: 16,
     fontWeight: "900",
@@ -837,6 +656,93 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
+ 
+/* Active Delivery Card */
+activeCard: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  backgroundColor: "#E6F4EA",
+  borderRadius: 18,
+  paddingHorizontal: 15,
+  paddingVertical: 16,
+  // marginHorizontal: 0,
+  marginBottom: 18,
+  minHeight: 155,
+  borderWidth: 1,
+  borderColor: "#D1EAD8",
+  overflow: "hidden",
+},
+
+activeTitle: {
+  fontSize: 15,
+  fontWeight: "800",
+  color: "#15803D",
+  marginBottom: 6,
+},
+
+activeOrder: {
+  fontSize: 14,
+  fontWeight: "800",
+  color: THEME.colors.textPrimary,
+  marginTop: 2,
+},
+
+activeSub: {
+  fontSize: 11,
+  fontWeight: "500",
+  color: THEME.colors.textSecondary,
+  marginTop: 5,
+  marginBottom: 13,
+},
+
+trackBtn: {
+  backgroundColor: THEME.colors.primary,
+  paddingHorizontal: 19,
+  paddingVertical: 9,
+  borderRadius: 20,
+  alignSelf: "flex-start",
+  elevation: 2,
+},
+
+trackBtnText: {
+  fontSize: 12,
+  fontWeight: "800",
+  color: "#FFFFFF",
+},
+
+activeDeliveryImage: {
+  width: 115,
+  height: 115,
+  marginLeft: 5,
+  alignSelf: "center",
+},
+
+
+  // Our Services list
+  serviceList: { gap: 10, marginBottom: 16 },
+  serviceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: THEME.colors.surface,
+    padding: 12,
+    borderRadius: THEME.radius.lg,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  serviceRowImage: { width: 64, height: 64, borderRadius: 12 },
+  serviceRowTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: THEME.colors.textPrimary,
+  },
+  serviceRowSub: {
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+    marginTop: 2,
+  },
+
   homeBanner: {
     width: BANNER_WIDTH,
     height: BANNER_HEIGHT,
@@ -866,51 +772,6 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.primary,
   },
 
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 20,
-  },
-  statCard: {
-    flexBasis: "48%",
-    flexGrow: 1,
-    backgroundColor: THEME.colors.surface,
-    padding: 14,
-    borderRadius: THEME.radius.lg,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  statIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: THEME.colors.textSecondary,
-    fontWeight: "600",
-  },
-  statValue: {
-    fontSize: 19,
-    fontWeight: "800",
-    color: THEME.colors.textPrimary,
-    marginTop: 4,
-  },
-  statSub: {
-    fontSize: 11,
-    color: THEME.colors.textMuted,
-    marginTop: 4,
-    fontWeight: "500",
-  },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -923,6 +784,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: THEME.colors.textPrimary,
   },
+  
   sectionBadge: {
     fontSize: 11,
     fontWeight: "700",
@@ -931,11 +793,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
-  },
-  sectionCount: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: THEME.colors.textMuted,
   },
   seeAllText: {
     fontSize: 13,
@@ -1008,176 +865,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#0875D1",
-  },
-  servicesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 20,
-  },
-  serviceCard: {
-    flexBasis: "48%",
-    flexGrow: 1,
-    backgroundColor: THEME.colors.surface,
-    borderRadius: THEME.radius.lg,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
-    justifyContent: "space-between",
-  },
-  serviceHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  serviceIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: THEME.colors.primaryLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  serviceBadge: {
-    backgroundColor: THEME.colors.secondaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  serviceBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: THEME.colors.secondaryDark,
-  },
-  serviceTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: THEME.colors.textPrimary,
-    marginBottom: 4,
-  },
-  serviceSubtitle: {
-    fontSize: 11,
-    color: THEME.colors.textSecondary,
-    lineHeight: 16,
-    marginBottom: 12,
-  },
-  serviceFooter: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: THEME.colors.borderLight,
-    paddingTop: 10,
-  },
-  servicePriceLabel: {
-    fontSize: 10,
-    color: THEME.colors.textMuted,
-  },
-  servicePrice: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: THEME.colors.primary,
-  },
-  servicePerL: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: THEME.colors.textMuted,
-  },
-  bookPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: THEME.colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-  },
-  bookPillText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  stationsList: {
-    gap: 10,
-    marginBottom: 20,
-  },
-  stationCard: {
-    flexDirection: "row",
-    backgroundColor: THEME.colors.surface,
-    padding: 14,
-    borderRadius: THEME.radius.lg,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    alignItems: "center",
-    gap: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  stationIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: THEME.colors.primaryLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stationInfo: {
-    flex: 1,
-  },
-  stationTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  stationName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: THEME.colors.textPrimary,
-    flex: 1,
-    marginRight: 8,
-  },
-  ratingBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: "#FEF3C7",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  ratingText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#B45309",
-  },
-  stationAddress: {
-    fontSize: 12,
-    color: THEME.colors.textSecondary,
-    marginTop: 2,
-    marginBottom: 6,
-  },
-  stationDetailsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  metaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 11,
-    color: THEME.colors.textMuted,
-    fontWeight: "500",
   },
   recentOrdersList: {
     gap: 10,
@@ -1275,37 +962,41 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: THEME.colors.textPrimary,
   },
-  // Product categories
-  categoryScroll: {
-    gap: 12,
-    paddingBottom: 8,
-    marginBottom: 16,
+
+  serviceGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginTop: 14,
+    marginBottom: 20,
   },
-  categoryItem: {
-    width: 84,
+
+  serviceCard: {
+    width: "23%",
     alignItems: "center",
   },
-  categoryImageBox: {
-    width: 84,
-    height: 84,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    overflow: "hidden",
+
+  serviceImageContainer: {
+    width: "100%",
+    height: 65,
+    borderRadius: 14,
+    backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    overflow: "hidden",
   },
-  categoryImage: {
-    width: "100%",
-    height: "100%",
+
+  serviceImage: {
+    width: "90%",
+    height: "90%",
   },
-  categoryLabel: {
-    fontSize: 12,
-    fontWeight: "600",
+
+  serviceTitle: {
+    fontSize: 11,
+    fontWeight: "700",
     color: THEME.colors.textPrimary,
     textAlign: "center",
-    lineHeight: 16,
+    marginTop: 7,
+    lineHeight: 15,
   },
 });

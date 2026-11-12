@@ -2,6 +2,7 @@
 import React from "react";
 import AccountDetailsForm from "./AccountDetailsForm";
 
+
 export default function IndividualDetails(): React.JSX.Element {
   return (
     <AccountDetailsForm
