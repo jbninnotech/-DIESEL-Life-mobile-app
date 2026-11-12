@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -31,12 +31,15 @@ type Slide = {
 
 const ACCENT = "#FF8A00";
 
-// Replace these with your actual Cloudinary secure URLs
+
+const BUTTON_GRADIENT = ["#44dbe0", "#66c7b5", "#48eed0"] as const;
+const DOT_COLOR = "#00fff7";
+
 const SLIDES: Slide[] = [
   {
     id: "1",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794473312/Golden_Diesel_Pouring_from_Green_Nozzle.png",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794498671/Diesel_Life_City_Highway.png",
     title: "Diesel Delivered To You",
     description:
       "Order premium diesel from your phone and get it delivered directly to your location.",
@@ -44,7 +47,7 @@ const SLIDES: Slide[] = [
   {
     id: "2",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794474028/Dieselfy_Delivery_at_Sunset.png",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794498440/Analysis_output_2.png",
     title: "Track Your Tanker Live",
     description:
       "Follow your diesel delivery in real time and know exactly when your tanker arrives.",
@@ -52,7 +55,7 @@ const SLIDES: Slide[] = [
   {
     id: "3",
     image:
-      "https://res.cloudinary.com/yozeshlg/image/upload/v1794473793/Dieselfy_Fueling_at_Sunset.png",
+      "https://res.cloudinary.com/yozeshlg/image/upload/v1794498445/Analysis_output_1_1.png",
     title: "Safe, Fast & Reliable",
     description:
       "Enjoy safe fuel delivery, professional drivers and reliable service at your doorstep.",
@@ -68,34 +71,42 @@ export default function Onboarding({ onDone }: Props) {
 
   const [index, setIndex] = useState(0);
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   const isLast = index === SLIDES.length - 1;
 
-  const finish = () => {
+  const finish = useCallback(() => {
     if (onDone) {
       onDone();
       return;
     }
-
     router.replace("/(auth)/login");
-  };
+  }, [onDone, router]);
 
   const next = () => {
     if (isLast) {
       finish();
       return;
     }
-
-    listRef.current?.scrollToIndex({
-      index: index + 1,
+    // scrollToOffset is more reliable than scrollToIndex with animated lists
+    listRef.current?.scrollToOffset({
+      offset: width * (index + 1),
       animated: true,
     });
+    setIndex(index + 1);
   };
 
   const onMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
-
     setIndex(Math.max(0, Math.min(newIndex, SLIDES.length - 1)));
+  };
+
+  const markLoaded = (id: string) =>
+    setLoadedImages((prev) => ({ ...prev, [id]: true }));
+
+  const markFailed = (id: string) => {
+    setFailedImages((prev) => ({ ...prev, [id]: true }));
+    markLoaded(id);
   };
 
   return (
@@ -103,7 +114,7 @@ export default function Onboarding({ onDone }: Props) {
       <StatusBar barStyle="light-content" />
 
       <Animated.FlatList
-        ref={listRef}
+        ref={listRef as any}
         data={SLIDES}
         keyExtractor={(item) => item.id}
         horizontal
@@ -112,18 +123,8 @@ export default function Onboarding({ onDone }: Props) {
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onMomentumEnd}
         onScroll={Animated.event(
-          [
-            {
-              nativeEvent: {
-                contentOffset: {
-                  x: scrollX,
-                },
-              },
-            },
-          ],
-          {
-            useNativeDriver: false,
-          }
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false }
         )}
         scrollEventThrottle={16}
         getItemLayout={(_, i) => ({
@@ -156,16 +157,18 @@ export default function Onboarding({ onDone }: Props) {
                 source={{ uri: item.image }}
                 resizeMode="cover"
                 style={styles.backgroundImage}
-                onLoadEnd={() =>
-                  setLoadedImages((prev) => ({
-                    ...prev,
-                    [item.id]: true,
-                  }))
-                }
+                onLoadEnd={() => markLoaded(item.id)}
+                onError={() => markFailed(item.id)}
               >
                 {!loadedImages[item.id] && (
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={ACCENT} />
+                  </View>
+                )}
+
+                {failedImages[item.id] && (
+                  <View style={styles.loadingContainer}>
+                    <Ionicons name="image-outline" size={48} color={ACCENT} />
                   </View>
                 )}
 
@@ -178,19 +181,16 @@ export default function Onboarding({ onDone }: Props) {
                   ]}
                   locations={[0, 0.4, 0.7, 1]}
                   style={styles.imageGradient}
+                  pointerEvents="none"
                 />
 
                 <Animated.View
                   style={[
                     styles.slideContent,
-                    {
-                      opacity,
-                      transform: [{ translateY }],
-                    },
+                    { opacity, transform: [{ translateY }] },
                   ]}
                 >
                   <Text style={styles.title}>{item.title}</Text>
-
                   <Text style={styles.description}>{item.description}</Text>
                 </Animated.View>
               </ImageBackground>
@@ -199,8 +199,10 @@ export default function Onboarding({ onDone }: Props) {
         }}
       />
 
+      {/* Overlay: box-none lets swipes pass through to the slides,
+          while the buttons inside still receive taps */}
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
-        <View style={styles.topBar}>
+        <View style={styles.topBar} pointerEvents="box-none">
           {!isLast ? (
             <Pressable onPress={finish} hitSlop={12} style={styles.skipButton}>
               <Text style={styles.skipText}>Skip</Text>
@@ -210,8 +212,8 @@ export default function Onboarding({ onDone }: Props) {
           )}
         </View>
 
-        <View style={styles.footer}>
-          <View style={styles.dots}>
+        <View style={styles.footer} pointerEvents="box-none">
+          <View style={styles.dots} pointerEvents="none">
             {SLIDES.map((_, dotIndex) => {
               const inputRange = [
                 (dotIndex - 1) * width,
@@ -234,13 +236,7 @@ export default function Onboarding({ onDone }: Props) {
               return (
                 <Animated.View
                   key={dotIndex}
-                  style={[
-                    styles.dot,
-                    {
-                      width: dotWidth,
-                      opacity: dotOpacity,
-                    },
-                  ]}
+                  style={[styles.dot, { width: dotWidth, opacity: dotOpacity }]}
                 />
               );
             })}
@@ -253,11 +249,17 @@ export default function Onboarding({ onDone }: Props) {
               pressed && styles.buttonPressed,
             ]}
           >
-            <Text style={styles.buttonText}>
-              {isLast ? "Get Started" : "Next"}
-            </Text>
-
-            <Ionicons name="arrow-forward" size={21} color="#fff" />
+            <LinearGradient
+              colors={BUTTON_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.buttonGradient}
+            >
+              <Text style={styles.buttonText}>
+                {isLast ? "Get Started" : "Next"}
+              </Text>
+              <Ionicons name="arrow-forward" size={21} color="#fff" />
+            </LinearGradient>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -266,15 +268,9 @@ export default function Onboarding({ onDone }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
+  container: { flex: 1, backgroundColor: "#000" },
 
-  slide: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
+  slide: { flex: 1, backgroundColor: "#000" },
 
   backgroundImage: {
     width: "100%",
@@ -282,9 +278,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
 
-  imageGradient: {
-    ...StyleSheet.absoluteFill,
-  },
+  imageGradient: { ...StyleSheet.absoluteFill },
 
   loadingContainer: {
     ...StyleSheet.absoluteFill,
@@ -326,16 +320,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  skipButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 5,
-  },
+  skipButton: { paddingVertical: 8, paddingHorizontal: 5 },
 
-  skipText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  skipText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 
   footer: {
     paddingHorizontal: 26,
@@ -352,7 +339,7 @@ const styles = StyleSheet.create({
   dot: {
     height: 8,
     borderRadius: 5,
-    backgroundColor: ACCENT,
+    backgroundColor: DOT_COLOR,
     marginHorizontal: 4,
   },
 
@@ -360,25 +347,23 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 58,
     borderRadius: 18,
-    backgroundColor: ACCENT,
+    shadowColor: "#FF6A00",
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 6,
+  },
+
+  buttonGradient: {
+    flex: 1,
+    borderRadius: 18,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 12,
-    shadowColor: ACCENT,
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-    elevation: 6,
   },
 
-  buttonPressed: {
-    transform: [{ scale: 0.97 }],
-    opacity: 0.9,
-  },
+  buttonPressed: { transform: [{ scale: 0.97 }], opacity: 0.9 },
 
   buttonText: {
     color: "#fff",
