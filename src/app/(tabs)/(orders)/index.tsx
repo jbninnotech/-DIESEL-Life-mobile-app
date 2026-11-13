@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
@@ -30,6 +31,7 @@ const TABS: FilterTab[] = [
 ];
 
 export default function OrdersScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
   const [activeTab, setActiveTab] = useState<FilterTab>("All Orders");
@@ -606,6 +608,24 @@ export default function OrdersScreen() {
 
               {/* Actions */}
               <View style={styles.detailActions}>
+                {selectedOrder.status === "In Progress" && (
+                  <TouchableOpacity
+                    style={[styles.reorderBtn, { backgroundColor: THEME.colors.primary, marginBottom: 4 }]}
+                    onPress={() => {
+                      setDetailsModalVisible(false);
+                      router.push("/(tabs)/(track)");
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <MaterialCommunityIcons
+                      name="radar"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.reorderBtnText}>Open Live Tracking</Text>
+                  </TouchableOpacity>
+                )}
+
                 <TouchableOpacity
                   style={styles.invoiceBtn}
                   onPress={() => handleDownloadInvoice(selectedOrder)}

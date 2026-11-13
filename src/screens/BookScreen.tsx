@@ -1,407 +1,313 @@
-import React, { useState, useEffect, useCallback, useRef, ElementRef } from "react";
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  Alert,
-  Modal,
-  Text,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { THEME } from "../constants/theme";
-import { useCurrentLocation } from "../hooks/useCurrentLocation";
-import { useBookingForm } from "../hooks/useBookingForm";
-import { pricingService } from "../services/pricingService";
-import { dieselBookingService } from "../services/dieselBookingService";
-import { LocationSearchResult } from "../services/locationService";
-import {
-  BookingPaymentMethod,
-  ConfirmedBookingResponse,
-  DeliveryScheduleType,
-  GeoCoordinates,
-  PriceBreakdownResult,
-  VehicleCategory,
-} from "../types/booking.types";
+import { useBookingWorkflow } from "../context/BookingWorkflowContext";
+import { FuelSupplier } from "../types/orderWorkflow.types";
 
-// Booking Section Components
-import { BookingHeader } from "../components/booking/BookingHeader";
-import { SectionHeader } from "../components/common/SectionHeader";
-import { LocationSelector } from "../components/booking/LocationSelector";
-import { DieselQuantitySelector } from "../components/booking/DieselQuantitySelector";
-import { VehicleDetails } from "../components/booking/VehicleDetails";
-import { CustomerDetails } from "../components/booking/CustomerDetails";
-import { DeliverySchedule } from "../components/booking/DeliverySchedule";
-import { PriceBreakdown } from "../components/booking/PriceBreakdown";
-import { PaymentSelector } from "../components/booking/PaymentSelector";
-import { BookingSummary } from "../components/booking/BookingSummary";
-import { ConfirmBookingButton } from "../components/booking/ConfirmBookingButton";
+import { FlowDeliveryAddressCard } from "../components/booking/FlowDeliveryAddressCard";
+import { FlowDeliveryScheduleCard } from "../components/booking/FlowDeliveryScheduleCard";
+import { FlowPaymentCard } from "../components/booking/FlowPaymentCard";
+import { FlowPaymentSuccessCard } from "../components/booking/FlowPaymentSuccessCard";
+import { FlowQuantitySelector } from "../components/booking/FlowQuantitySelector";
+import { SupplierDetailModal } from "../components/booking/SupplierDetailModal";
+import { SupplierListCard } from "../components/booking/SupplierListCard";
+
+const STEPS = [
+  { key: "QUANTITY", label: "Fuel Qty" },
+  { key: "SUPPLIER", label: "Supplier" },
+  { key: "ADDRESS", label: "Address" },
+  { key: "SCHEDULE", label: "Schedule" },
+  { key: "PAYMENT", label: "Payment" },
+];
 
 export default function BookScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ElementRef<typeof ScrollView>>(null);
 
-  const todayStr = new Date().toISOString().split("T")[0];
-
-  // Location Hook
   const {
-    addressData,
-    serviceability,
-    isLoading: isLocationLoading,
-    error: locationError,
-    detectLocation,
-    setCustomCoordinates,
-    clearError: clearLocationError,
-  } = useCurrentLocation(false);
+    currentStep,
+    goToStep,
+    quantityLitres,
+    setQuantityLitres,
+    selectedSupplier,
+    setSelectedSupplier,
+    deliveryAddress,
+    setDeliveryAddress,
+    schedule,
+    setSchedule,
+    paymentMethod,
+    setPaymentMethod,
+    priceBreakdown,
+    isCalculatingPrice,
+    activeOrder,
+    completeBookingAndPay,
+    resetBooking,
+  } = useBookingWorkflow();
 
-  // Form Hook
-  const form = useBookingForm(todayStr);
-  const {
-    watch,
-    setValue,
-    handleSubmit,
-    formState: { errors },
-  } = form;
+  const [modalSupplier, setModalSupplier] = useState<FuelSupplier | null>(null);
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
 
-  const formValues = watch();
+  // Stepper logic
+  const stepIdx = STEPS.findIndex((s) => s.key === currentStep);
 
-  // Dynamic Pricing State
-  const [, setLiveRate] = useState<number>(89.62);
-  const [priceBreakdown, setPriceBreakdown] = useState<PriceBreakdownResult>({
-    quantityLiters: 20,
-    ratePerLiter: 89.62,
-    dieselSubtotal: 1792.4,
-    deliveryCharges: 150,
-    additionalCharges: 0,
-    discountAmount: 0,
-    finalTotalAmount: 1942.4,
-  });
-
-  // Submission State
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [bookingSuccessModal, setBookingSuccessModal] = useState(false);
-  const [confirmedOrder, setConfirmedOrder] = useState<ConfirmedBookingResponse | null>(null);
-
-  // Sync GPS Address into Form Values
-  useEffect(() => {
-    if (addressData) {
-      setValue("deliveryAddress", addressData.formattedAddress, { shouldValidate: true });
-      setValue("city", addressData.city, { shouldValidate: true });
-      setValue("postalCode", addressData.postalCode || "560001", { shouldValidate: true });
-      setValue("coordinates", addressData.coordinates, { shouldValidate: true });
-    }
-  }, [addressData, setValue]);
-
-  // Recalculate Dynamic Pricing on changes
-  const updatePricing = useCallback(async () => {
-    const rate = await pricingService.getLiveDieselRate(formValues.city);
-    setLiveRate(rate);
-
-    const deliveryFee = serviceability?.deliveryCharge ?? (formValues.litres >= 50 ? 0 : 150);
-    const breakdown = pricingService.calculateBreakdown(
-      formValues.litres,
-      rate,
-      deliveryFee
-    );
-    setPriceBreakdown(breakdown);
-  }, [formValues.city, formValues.litres, serviceability]);
-
-  useEffect(() => {
-    updatePricing();
-  }, [updatePricing]);
-
-  // Available Time Slots for current date
-  const availableSlots = dieselBookingService.getAvailableSlots(formValues.deliveryDate);
-
-  // Handlers for Location
-  const handleDetectGPS = async () => {
-    setValue("isLocationConfirmed", false);
-    await detectLocation();
+  const handleSupplierSelected = (sup: FuelSupplier) => {
+    setSelectedSupplier(sup);
   };
 
-  const handleSelectSearchResult = async (result: LocationSearchResult) => {
-    setValue("deliveryAddress", result.fullAddress, { shouldValidate: true });
-    setValue("isLocationConfirmed", false);
-    if (result.coordinates) {
-      await setCustomCoordinates(result.coordinates);
-    }
+  const handleViewSupplierDetails = (sup: FuelSupplier) => {
+    setModalSupplier(sup);
+    setIsDetailModalVisible(true);
   };
 
-  const handlePinNudge = async (newCoords: GeoCoordinates) => {
-    setValue("isLocationConfirmed", false);
-    await setCustomCoordinates(newCoords);
+  const handlePaySuccess = async () => {
+    await completeBookingAndPay();
+    goToStep("SUCCESS");
   };
 
-  const handleConfirmLocation = () => {
-    setValue("isLocationConfirmed", true, { shouldValidate: true });
-    Alert.alert(
-      "Location Confirmed",
-      "Delivery spot confirmed for Bowser fleet routing.",
-      [{ text: "OK" }]
-    );
-  };
-
-  const scrollToSection = (_section: string) => {
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
-  };
-
-  // Submit Booking Order
-  const onBookingSubmit = async (data: typeof formValues) => {
-    if (isSubmitting) return;
-
-    // Serviceability check
-    if (serviceability && !serviceability.isServiceable) {
-      Alert.alert(
-        "Serviceability Notice",
-        serviceability.reason || "The selected coordinates are currently out of delivery range."
-      );
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const response = await dieselBookingService.submitDieselBooking(data);
-      setConfirmedOrder(response);
-      setBookingSuccessModal(true);
-    } catch (err: any) {
-      Alert.alert(
-        "Booking Error",
-        err.message || "Failed to submit diesel booking. Please try again."
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleTrackOrder = () => {
+    router.push("/(tabs)/(track)");
   };
 
   return (
     <View style={styles.root}>
-      {/* Header Gradient */}
+      <StatusBar barStyle="light-content" />
+
+      {/* Modern Gradient Header */}
       <LinearGradient
-        colors={[THEME.colors.gradientStart, THEME.colors.gradientEnd]}
+        colors={["#0891B2", "#0284C7"]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.headerGradient, { paddingTop: insets.top + 4 }]}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerGradient, { paddingTop: Math.max(insets.top, 16) }]}
       >
-        <BookingHeader onBack={() => router.back()} />
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerTitle}>DIESEL Life Booking</Text>
+            <Text style={styles.headerSubtitle}>
+              On-demand high-density mobile bowser dispensing
+            </Text>
+          </View>
+          <View style={styles.headerBadge}>
+            <MaterialCommunityIcons name="shield-check" size={14} color="#0891B2" />
+            <Text style={styles.headerBadgeText}>PESO Certified</Text>
+          </View>
+        </View>
+
+        {/* Progress Stepper Bar (Hidden on Success) */}
+        {currentStep !== "SUCCESS" && (
+          <View style={styles.stepperRow}>
+            {STEPS.map((s, idx) => {
+              const isPast = idx < stepIdx;
+              const isCurr = idx === stepIdx;
+
+              return (
+                <TouchableOpacity
+                  key={s.key}
+                  style={styles.stepCol}
+                  onPress={() => {
+                    // Only allow tapping previous completed steps
+                    if (idx < stepIdx) goToStep(s.key as any);
+                  }}
+                  disabled={idx > stepIdx}
+                >
+                  <View
+                    style={[
+                      styles.stepCircle,
+                      isCurr && styles.stepCircleCurr,
+                      isPast && styles.stepCirclePast,
+                    ]}
+                  >
+                    {isPast ? (
+                      <MaterialCommunityIcons name="check" size={12} color="#FFFFFF" />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.stepNum,
+                          isCurr && styles.stepNumCurr,
+                        ]}
+                      >
+                        {idx + 1}
+                      </Text>
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.stepLabel,
+                      isCurr && styles.stepLabelCurr,
+                    ]}
+                  >
+                    {s.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </LinearGradient>
 
+      {/* Main Content Area */}
       <KeyboardAvoidingView
-        style={styles.keyboardAvoid}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
       >
         <ScrollView
-          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* SECTION B: DELIVERY LOCATION */}
-          <View style={styles.sectionCard}>
-            <SectionHeader
-              title="1. Delivery Location"
-              subtitle="Pinpoint exact spot for mobile fuel bowser"
-              icon="map-marker-radius"
-            />
-            <LocationSelector
-              coordinates={formValues.coordinates}
-              addressData={addressData}
-              serviceability={serviceability}
-              isLoading={isLocationLoading}
-              error={locationError}
-              isConfirmed={formValues.isLocationConfirmed}
-              onDetectLocation={handleDetectGPS}
-              onSelectSearchResult={handleSelectSearchResult}
-              onPinNudged={handlePinNudge}
-              onConfirmLocation={handleConfirmLocation}
-              onClearError={clearLocationError}
-            />
-            {errors.isLocationConfirmed && (
-              <Text style={styles.errorText}>{errors.isLocationConfirmed.message}</Text>
-            )}
-            {errors.deliveryAddress && (
-              <Text style={styles.errorText}>{errors.deliveryAddress.message}</Text>
-            )}
-          </View>
+          {/* STEP 1: QUANTITY */}
+          {currentStep === "QUANTITY" && (
+            <View>
+              <FlowQuantitySelector
+                quantity={quantityLitres}
+                onQuantityChange={setQuantityLitres}
+                priceBreakdown={priceBreakdown}
+                isCalculating={isCalculatingPrice}
+              />
 
-          {/* SECTION C: DIESEL QUANTITY */}
-          <View style={styles.sectionCard}>
-            <SectionHeader
-              title="2. Diesel Quantity"
-              subtitle="Pure High-Speed Diesel (BS-VI Standard)"
-              icon="gas-station"
-            />
-            <DieselQuantitySelector
-              quantity={formValues.litres}
-              onChangeQuantity={(q: number) => setValue("litres", q, { shouldValidate: true })}
-              error={errors.litres?.message}
-              minQuantity={serviceability?.minQuantity || 5}
-              maxQuantity={serviceability?.maxQuantity || 10000}
-            />
-          </View>
+              <TouchableOpacity
+                style={styles.nextStepBtn}
+                onPress={() => goToStep("SUPPLIER")}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.nextStepBtnText}>
+                  Continue to Select Supplier ({quantityLitres} L)
+                </Text>
+                <MaterialCommunityIcons name="arrow-right" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          )}
 
-          {/* SECTION D: ASSET & VEHICLE DETAILS */}
-          <View style={styles.sectionCard}>
-            <SectionHeader
-              title="3. Fueling Asset & Category"
-              subtitle="Select vehicle or stationary generator"
-              icon="car-multiple"
-            />
-            <VehicleDetails
-              selectedCategory={formValues.vehicleCategory}
-              onSelectCategory={(cat: VehicleCategory) =>
-                setValue("vehicleCategory", cat, { shouldValidate: true })
-              }
-              vehicleNumber={formValues.vehicleNumber || ""}
-              onChangeVehicleNumber={(num: string) =>
-                setValue("vehicleNumber", num, { shouldValidate: true })
-              }
-              categoryError={errors.vehicleCategory?.message}
-              numberError={errors.vehicleNumber?.message}
-            />
-          </View>
+          {/* STEP 2: SUPPLIER */}
+          {currentStep === "SUPPLIER" && (
+            <View>
+              <SupplierListCard
+                selectedSupplier={selectedSupplier}
+                onSelectSupplier={handleSupplierSelected}
+                onViewDetails={handleViewSupplierDetails}
+                quantityLitres={quantityLitres}
+              />
 
-          {/* SECTION D.2: CONTACT & INSTRUCTIONS */}
-          <View style={styles.sectionCard}>
-            <SectionHeader
-              title="4. Contact & Gate Instructions"
-              subtitle="Details for Bowser operator coordination"
-              icon="account-box-outline"
-            />
-            <CustomerDetails
-              contactName={formValues.contactName}
-              onChangeContactName={(n: string) => setValue("contactName", n, { shouldValidate: true })}
-              contactNumber={formValues.contactNumber}
-              onChangeContactNumber={(p: string) =>
-                setValue("contactNumber", p, { shouldValidate: true })
-              }
-              deliveryInstructions={formValues.deliveryInstructions}
-              onChangeDeliveryInstructions={(i: string) => setValue("deliveryInstructions", i)}
-              nameError={errors.contactName?.message}
-              phoneError={errors.contactNumber?.message}
-            />
-          </View>
+              <View style={styles.navBtnsRow}>
+                <TouchableOpacity
+                  style={styles.backBtn}
+                  onPress={() => goToStep("QUANTITY")}
+                >
+                  <MaterialCommunityIcons name="arrow-left" size={18} color={THEME.colors.textPrimary} />
+                  <Text style={styles.backBtnText}>Back</Text>
+                </TouchableOpacity>
 
-          {/* SECTION E: DELIVERY DATE AND TIME */}
-          <View style={styles.sectionCard}>
-            <SectionHeader
-              title="5. Delivery Scheduling"
-              subtitle="Immediate express dispatch or pre-scheduled slot"
-              icon="clock-time-four"
-            />
-            <DeliverySchedule
-              scheduleType={formValues.scheduleType}
-              onChangeScheduleType={(t: DeliveryScheduleType) =>
-                setValue("scheduleType", t, { shouldValidate: true })
-              }
-              selectedDate={formValues.deliveryDate}
-              onSelectDate={(d: string) => setValue("deliveryDate", d, { shouldValidate: true })}
-              selectedSlotId={formValues.deliverySlotId}
-              onSelectSlot={(s: string) => setValue("deliverySlotId", s, { shouldValidate: true })}
-              availableSlots={availableSlots}
-              slotError={errors.deliverySlotId?.message}
-              isServiceable={serviceability?.isServiceable}
-            />
-          </View>
+                <TouchableOpacity
+                  style={[styles.nextStepBtn, { flex: 1 }, !selectedSupplier && styles.btnDisabled]}
+                  onPress={() => {
+                    if (selectedSupplier) goToStep("ADDRESS");
+                  }}
+                  disabled={!selectedSupplier}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.nextStepBtnText}>Next: Delivery Address</Text>
+                  <MaterialCommunityIcons name="arrow-right" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
-          {/* SECTION F: DYNAMIC PRICE BREAKDOWN */}
-          <PriceBreakdown breakdown={priceBreakdown} />
+          {/* STEP 3: ADDRESS */}
+          {currentStep === "ADDRESS" && (
+            <View>
+              <FlowDeliveryAddressCard
+                address={deliveryAddress}
+                onUpdateAddress={setDeliveryAddress}
+                onConfirm={() => goToStep("SCHEDULE")}
+              />
 
-          {/* SECTION G: PAYMENT METHOD */}
-          <View style={styles.sectionCard}>
-            <SectionHeader
-              title="6. Payment Method"
-              subtitle="Select secure checkout option"
-              icon="credit-card-check"
-            />
-            <PaymentSelector
-              selectedMethod={formValues.paymentMethod}
-              onSelectMethod={(m: BookingPaymentMethod) => setValue("paymentMethod", m, { shouldValidate: true })}
-              error={errors.paymentMethod?.message}
-            />
-          </View>
+              <TouchableOpacity
+                style={styles.backTextBtn}
+                onPress={() => goToStep("SUPPLIER")}
+              >
+                <Text style={styles.backTextBtnTitle}>← Change Supplier</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-          {/* SECTION H: BOOKING SUMMARY */}
-          <BookingSummary
-            formValues={formValues}
-            priceBreakdown={priceBreakdown}
-            onEditSection={scrollToSection}
-          />
+          {/* STEP 4: SCHEDULE */}
+          {currentStep === "SCHEDULE" && (
+            <View>
+              <FlowDeliveryScheduleCard
+                schedule={schedule}
+                onUpdateSchedule={setSchedule}
+                supplier={selectedSupplier}
+                onConfirmSchedule={() => goToStep("PAYMENT")}
+              />
+
+              <TouchableOpacity
+                style={styles.backTextBtn}
+                onPress={() => goToStep("ADDRESS")}
+              >
+                <Text style={styles.backTextBtnTitle}>← Edit Delivery Address</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* STEP 5: PAYMENT */}
+          {currentStep === "PAYMENT" && (
+            <View>
+              <FlowPaymentCard
+                supplier={selectedSupplier}
+                quantityLitres={quantityLitres}
+                priceBreakdown={priceBreakdown}
+                address={deliveryAddress}
+                schedule={schedule}
+                paymentMethod={paymentMethod}
+                onSelectPaymentMethod={setPaymentMethod}
+                onPaySuccess={handlePaySuccess}
+              />
+
+              <TouchableOpacity
+                style={styles.backTextBtn}
+                onPress={() => goToStep("SCHEDULE")}
+              >
+                <Text style={styles.backTextBtnTitle}>← Modify Schedule</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* STEP 6: CONFIRMATION SUCCESS */}
+          {currentStep === "SUCCESS" && activeOrder && (
+            <FlowPaymentSuccessCard
+              order={activeOrder}
+              onTrackOrder={handleTrackOrder}
+              onDone={() => resetBooking()}
+            />
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* SECTION I: STICKY CONFIRM BOOKING BOTTOM BAR */}
-      <ConfirmBookingButton
-        onPress={handleSubmit(onBookingSubmit)}
-        isLoading={isSubmitting}
-        totalAmount={priceBreakdown.finalTotalAmount}
-        disabled={isSubmitting}
+      {/* Supplier Details Modal */}
+      <SupplierDetailModal
+        supplier={modalSupplier}
+        visible={isDetailModalVisible}
+        onClose={() => setIsDetailModalVisible(false)}
+        onConfirmSupplier={(sup) => {
+          setSelectedSupplier(sup);
+          goToStep("ADDRESS");
+        }}
+        quantityLitres={quantityLitres}
       />
-
-      {/* SUCCESS CONFIRMATION MODAL */}
-      <Modal
-        visible={bookingSuccessModal}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setBookingSuccessModal(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalSuccessIcon}>
-              <MaterialCommunityIcons name="check-decagram" size={48} color="#FFFFFF" />
-            </View>
-
-            <Text style={styles.modalTitle}>Diesel Booking Confirmed!</Text>
-            <Text style={styles.modalOrderNumber}>Order ID: {confirmedOrder?.orderId}</Text>
-            <Text style={styles.modalMsg}>
-              {confirmedOrder?.message ||
-                "Your fuel order has been scheduled. Bowser operator assigned for dispensing."}
-            </Text>
-
-            <View style={styles.modalSummaryBox}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Fuel Quantity</Text>
-                <Text style={styles.summaryVal}>{confirmedOrder?.bookingDetails.litres} Litres</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Total Amount</Text>
-                <Text style={styles.summaryVal}>
-                  ₹{confirmedOrder?.bookingDetails.priceSummary.finalTotalAmount.toLocaleString("en-IN")}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.modalBtns}>
-              <TouchableOpacity
-                style={styles.modalPrimaryBtn}
-                onPress={() => {
-                  setBookingSuccessModal(false);
-                  router.push("/(tabs)/(orders)");
-                }}
-              >
-                <Text style={styles.modalPrimaryText}>View In Orders</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalSecondaryBtn}
-                onPress={() => {
-                  setBookingSuccessModal(false);
-                  router.push("/(tabs)/(home)");
-                }}
-              >
-                <Text style={styles.modalSecondaryText}>Return to Home</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -412,12 +318,81 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.background,
   },
   headerGradient: {
-    paddingHorizontal: 0,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    elevation: 6,
   },
-  keyboardAvoid: {
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#FFFFFF",
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: "#E0F2FE",
+    marginTop: 2,
+  },
+  headerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  headerBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#0891B2",
+  },
+  stepperRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  stepCol: {
+    alignItems: "center",
+    gap: 4,
     flex: 1,
+  },
+  stepCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepCircleCurr: {
+    backgroundColor: "#FFFFFF",
+  },
+  stepCirclePast: {
+    backgroundColor: "#16A34A",
+  },
+  stepNum: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  stepNumCurr: {
+    color: "#0891B2",
+  },
+  stepLabel: {
+    fontSize: 10,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontWeight: "600",
+  },
+  stepLabelCurr: {
+    color: "#FFFFFF",
+    fontWeight: "800",
   },
   scroll: {
     flex: 1,
@@ -425,118 +400,55 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 32,
-    gap: 16,
   },
-  sectionCard: {
-    backgroundColor: THEME.colors.surface,
-    borderRadius: THEME.radius.lg,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  errorText: {
-    color: THEME.colors.danger,
-    fontSize: 12,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.75)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalContent: {
-    width: "100%",
-    maxWidth: 380,
-    backgroundColor: THEME.colors.surface,
-    borderRadius: THEME.radius.xl,
-    padding: 24,
-    alignItems: "center",
-    elevation: 10,
-  },
-  modalSuccessIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: THEME.colors.secondary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: THEME.colors.textPrimary,
-    textAlign: "center",
-  },
-  modalOrderNumber: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: THEME.colors.primary,
-    marginTop: 4,
-  },
-  modalMsg: {
-    fontSize: 12,
-    color: THEME.colors.textSecondary,
-    textAlign: "center",
-    marginTop: 8,
-    lineHeight: 18,
-  },
-  modalSummaryBox: {
-    width: "100%",
-    backgroundColor: THEME.colors.background,
-    borderRadius: THEME.radius.md,
-    padding: 12,
-    marginVertical: 16,
-    flexDirection: "row",
-    justifyContent: "space-around",
-  },
-  summaryItem: {
-    alignItems: "center",
-  },
-  summaryLabel: {
-    fontSize: 10,
-    color: THEME.colors.textMuted,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  summaryVal: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: THEME.colors.textPrimary,
-    marginTop: 2,
-  },
-  modalBtns: {
-    width: "100%",
-    gap: 10,
-  },
-  modalPrimaryBtn: {
+  nextStepBtn: {
     backgroundColor: THEME.colors.primary,
-    paddingVertical: 14,
-    borderRadius: THEME.radius.lg,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+    elevation: 3,
+    shadowColor: THEME.colors.primary,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
   },
-  modalPrimaryText: {
+  nextStepBtnText: {
     color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
   },
-  modalSecondaryBtn: {
-    backgroundColor: THEME.colors.borderLight,
-    paddingVertical: 12,
-    borderRadius: THEME.radius.lg,
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  navBtnsRow: {
+    flexDirection: "row",
+    gap: 12,
     alignItems: "center",
   },
-  modalSecondaryText: {
-    color: THEME.colors.textSecondary,
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    gap: 4,
+  },
+  backBtnText: {
     fontSize: 13,
+    fontWeight: "700",
+    color: THEME.colors.textPrimary,
+  },
+  backTextBtn: {
+    alignItems: "center",
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  backTextBtnTitle: {
+    fontSize: 13,
+    color: THEME.colors.primary,
     fontWeight: "700",
   },
 });

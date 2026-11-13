@@ -35,11 +35,11 @@ const TABS: Record<string, TabConfig> = {
     active: "clipboard-list",
     inactive: "clipboard-list-outline",
   },
-  wallet: {
-    name: "(wallet)/index",
-    title: "Wallet",
-    active: "wallet",
-    inactive: "wallet-outline",
+  track: {
+    name: "(track)/index",
+    title: "Track",
+    active: "radar",
+    inactive: "radar",
   },
   profile: {
     name: "(profile)/index",
@@ -163,13 +163,13 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* 4. Wallet */}
+      {/* 4. Track (Right side of Book) */}
       <Tabs.Screen
-        name="(wallet)/index"
+        name="(track)/index"
         options={{
-          title: "Wallet",
+          title: "Track",
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} tab={TABS.wallet} />
+            <TabIcon focused={focused} tab={TABS.track} />
           ),
         }}
       />

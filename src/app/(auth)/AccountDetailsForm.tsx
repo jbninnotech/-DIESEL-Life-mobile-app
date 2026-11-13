@@ -220,7 +220,7 @@ export default function AccountDetailsForm({
     if (city.trim().length === 0) invalid.push("City");
     if (state.trim().length === 0) invalid.push("State");
     if (!PINCODE_REGEX.test(pincode)) invalid.push("Pincode (6 digits)");
-    if (source === null) invalid.push("How did you hear about us?");
+    // if (source === null) invalid.push("How did you hear about us?");
 
     return invalid;
   };
